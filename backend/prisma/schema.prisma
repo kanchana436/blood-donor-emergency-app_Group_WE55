@@ -1,0 +1,111 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  phone     String
+  password  String
+  role      String   @default("donor") // "donor", "recipient", "manager"
+  isActive  Boolean  @default(true)
+  fcmToken  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  donorProfile   DonorProfile?
+  bloodRequests  BloodRequest[]
+  donorResponses DonorResponse[]
+  donationRecords DonationRecord[]
+  notifications  Notification[]
+}
+
+model DonorProfile {
+  id                String    @id @default(uuid())
+  userId            String    @unique
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bloodGroup        String    // "A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"
+  isAvailable       Boolean   @default(true)
+  city              String
+  address           String    @default("")
+  latitude          Float     @default(6.9271)
+  longitude         Float     @default(79.8612)
+  lastDonationDate  DateTime?
+  totalDonations    Int       @default(0)
+  livesSaved        Int       @default(0)
+  eligibilityStatus String    @default("Eligible") // "Eligible", "Deferred", "Ineligible"
+  weightKg          Float?
+  medicalConditions String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+model BloodRequest {
+  id              String   @id @default(uuid())
+  requesterId     String
+  requester       User     @relation(fields: [requesterId], references: [id], onDelete: Cascade)
+  requesterName   String
+  patientName     String
+  bloodGroup      String
+  unitsRequired   Int      @default(1)
+  urgency         String   @default("Emergency") // "Emergency", "Urgent", "Standard"
+  hospitalName    String
+  hospitalAddress String
+  latitude        Float    @default(6.9271)
+  longitude       Float    @default(79.8612)
+  contactPhone    String
+  additionalNotes String   @default("")
+  status          String   @default("Open") // "Open", "InProgress", "Fulfilled", "Cancelled"
+  requiredBefore  DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  responses       DonorResponse[]
+}
+
+model DonorResponse {
+  id              String       @id @default(uuid())
+  requestId       String
+  request         BloodRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  donorId         String
+  donor           User         @relation(fields: [donorId], references: [id], onDelete: Cascade)
+  donorName       String
+  donorPhone      String
+  donorBloodGroup String
+  status          String       @default("Pending") // "Pending", "Accepted", "Declined"
+  distanceKm      Float        @default(2.5)
+  note            String?
+  respondedAt     DateTime     @default(now())
+}
+
+model DonationRecord {
+  id             String   @id @default(uuid())
+  donorId        String
+  donor          User     @relation(fields: [donorId], references: [id], onDelete: Cascade)
+  requestId      String
+  hospitalName   String
+  patientName    String
+  bloodGroup     String
+  units          Int      @default(1)
+  donationDate   DateTime @default(now())
+  status         String   @default("Completed")
+  certificateUrl String?
+}
+
+model Notification {
+  id               String   @id @default(uuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title            String
+  message          String
+  type             String   @default("emergency") // "emergency", "match", "accepted", "reminder"
+  isRead           Boolean  @default(false)
+  relatedRequestId String?
+  timestamp        DateTime @default(now())
+}
