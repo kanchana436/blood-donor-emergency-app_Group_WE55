@@ -76,6 +76,13 @@ class AuthProvider with ChangeNotifier {
     } catch (_) {}
   }
 
+  void clearError() {
+    if (_errorMessage != null) {
+      _errorMessage = null;
+      notifyListeners();
+    }
+  }
+
   Future<bool> register({
     required String name,
     required String email,
@@ -103,7 +110,8 @@ class AuthProvider with ChangeNotifier {
       return true;
     } catch (e) {
       _isLoading = false;
-      _errorMessage = e.toString();
+      final msg = e.toString().replaceFirst('Exception: ', '').trim();
+      _errorMessage = msg.isNotEmpty ? msg : 'Registration failed.';
       notifyListeners();
       return false;
     }
@@ -130,7 +138,8 @@ class AuthProvider with ChangeNotifier {
       return true;
     } catch (e) {
       _isLoading = false;
-      _errorMessage = e.toString();
+      final msg = e.toString().replaceFirst('Exception: ', '').trim();
+      _errorMessage = msg.isNotEmpty ? msg : 'Login failed.';
       notifyListeners();
       return false;
     }
@@ -168,6 +177,7 @@ class AuthProvider with ChangeNotifier {
   Future<bool> deactivateAccount() async {
     if (_currentUser == null) return false;
     _isLoading = true;
+    _errorMessage = null;
     notifyListeners();
 
     try {
@@ -181,7 +191,8 @@ class AuthProvider with ChangeNotifier {
       return success;
     } catch (e) {
       _isLoading = false;
-      _errorMessage = e.toString();
+      final msg = e.toString().replaceFirst('Exception: ', '').trim();
+      _errorMessage = msg.isNotEmpty ? msg : 'Failed to deactivate account.';
       notifyListeners();
       return false;
     }

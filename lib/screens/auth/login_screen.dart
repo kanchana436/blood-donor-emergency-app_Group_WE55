@@ -37,6 +37,9 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<AuthProvider>(context, listen: false).clearError();
+    });
     // Pre-populate demo email according to role for fast evaluation
     if (widget.role == 'donor') {
       _emailController.text = 'alexander@lifelink.org';
@@ -59,6 +62,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final donorProvider = Provider.of<DonorProvider>(context, listen: false);
+    authProvider.clearError();
 
     final success = await authProvider.login(
       email: _emailController.text.trim(),
@@ -90,10 +94,29 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     } else {
+      final errorMsg = authProvider.errorMessage ?? 'Invalid email or password.';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(authProvider.errorMessage ?? 'Login failed. Please check credentials.'),
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline_rounded, color: Colors.white, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  errorMsg,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ],
+          ),
           backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          duration: const Duration(seconds: 4),
         ),
       );
     }
@@ -162,12 +185,18 @@ class _LoginScreenState extends State<LoginScreen> {
                   hintText: 'Enter your email',
                   prefixIcon: Icons.email_outlined,
                   keyboardType: TextInputType.emailAddress,
+                  onChanged: (_) {
+                    if (authProvider.errorMessage != null) {
+                      authProvider.clearError();
+                    }
+                  },
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return 'Please enter your email';
                     }
-                    if (!value.contains('@') || !value.contains('.')) {
-                      return 'Please enter a valid email';
+                    final emailRegex = RegExp(r'^[\w\.-]+@([\w-]+\.)+[\w-]{2,4}$');
+                    if (!emailRegex.hasMatch(value.trim())) {
+                      return 'Please enter a valid email address';
                     }
                     return null;
                   },
@@ -179,12 +208,14 @@ class _LoginScreenState extends State<LoginScreen> {
                   hintText: 'Enter your password',
                   prefixIcon: Icons.lock_outline_rounded,
                   isPassword: true,
+                  onChanged: (_) {
+                    if (authProvider.errorMessage != null) {
+                      authProvider.clearError();
+                    }
+                  },
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return 'Please enter your password';
-                    }
-                    if (value.length < 6) {
-                      return 'Password must be at least 6 characters';
                     }
                     return null;
                   },
@@ -210,7 +241,35 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
+                if (authProvider.errorMessage != null) ...[
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 18),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEE2E2),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFF87171)),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 20),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            authProvider.errorMessage!,
+                            style: const TextStyle(
+                              color: Color(0xFFB91C1C),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 CustomButton(
                   text: 'Sign In',
                   customColor: _themeColor,

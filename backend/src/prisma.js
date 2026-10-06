@@ -6,9 +6,17 @@ let isPrismaConnected = false;
 try {
   prisma = new PrismaClient();
   prisma.$connect()
-    .then(() => {
+    .then(async () => {
       isPrismaConnected = true;
       console.log('✅ Connected to PostgreSQL / Supabase Database via Prisma');
+      try {
+        await prisma.$executeRawUnsafe(
+          'CREATE UNIQUE INDEX IF NOT EXISTS "User_email_lower_key" ON public."User" (LOWER(email));'
+        );
+        console.log('🔒 Case-insensitive unique constraint on email verified at database level.');
+      } catch (idxErr) {
+        console.warn('Notice: Could not verify User_email_lower_key index:', idxErr.message);
+      }
     })
     .catch((err) => {
       isPrismaConnected = false;
@@ -25,6 +33,7 @@ const db = {
       id: 'usr_donor_101',
       name: 'Alexander Silva',
       email: 'alexander@lifelink.org',
+      password: '$2b$10$ptyCpgrP1zFvd5ZkvOBlfuSitg6nal24yUMVxSTuLxC.iYuwnvioC', // password123
       phone: '+94 77 123 4567',
       role: 'donor',
       isActive: true,
@@ -34,6 +43,7 @@ const db = {
       id: 'usr_recip_202',
       name: 'Sarah Perera',
       email: 'sarah.p@lifelink.org',
+      password: '$2b$10$ptyCpgrP1zFvd5ZkvOBlfuSitg6nal24yUMVxSTuLxC.iYuwnvioC', // password123
       phone: '+94 71 987 6543',
       role: 'recipient',
       isActive: true,

@@ -17,11 +17,13 @@ class AuthService {
     required String password,
     required String role, // 'donor' or 'recipient'
   }) async {
+    final normalizedEmail = email.trim().toLowerCase();
+
     // Attempt REST backend
     final response = await _apiService.post(ApiConstants.register, {
-      'name': name,
-      'email': email,
-      'phone': phone,
+      'name': name.trim(),
+      'email': normalizedEmail,
+      'phone': phone.trim(),
       'password': password,
       'role': role,
     });
@@ -40,11 +42,18 @@ class AuthService {
     }
 
     // Local Mock / Offline fallback if server is unreachable
+    final existsLocal = _dataStore.users.any(
+      (u) => u.email.toLowerCase() == normalizedEmail,
+    );
+    if (existsLocal) {
+      throw Exception('An account with this email already exists.');
+    }
+
     final newUser = UserModel(
       id: 'usr_${_uuid.v4().substring(0, 8)}',
-      name: name,
-      email: email,
-      phone: phone,
+      name: name.trim(),
+      email: normalizedEmail,
+      phone: phone.trim(),
       role: role,
       isActive: true,
       createdAt: DateTime.now(),
@@ -59,8 +68,10 @@ class AuthService {
     required String email,
     required String password,
   }) async {
+    final normalizedEmail = email.trim().toLowerCase();
+
     final response = await _apiService.post(ApiConstants.login, {
-      'email': email,
+      'email': normalizedEmail,
       'password': password,
     });
 
@@ -72,30 +83,13 @@ class AuthService {
       return user;
     }
 
-    // If server rejected login (wrong credentials), bubble up the error!
+    // If server rejected login (e.g. 401 Invalid email or password), bubble up the error!
     if (response.message != null && !response.message!.contains('Could not connect')) {
       throw Exception(response.message);
     }
 
-    // Local Mock fallback only if backend server is unreachable
-    final existing = _dataStore.users.firstWhere(
-      (u) => u.email.toLowerCase() == email.toLowerCase(),
-      orElse: () {
-        final defaultUser = UserModel(
-          id: 'usr_${_uuid.v4().substring(0, 8)}',
-          name: email.split('@').first,
-          email: email,
-          phone: '+94 77 123 4567',
-          role: email.contains('recip') ? 'recipient' : 'donor',
-          isActive: true,
-        );
-        _dataStore.users.add(defaultUser);
-        return defaultUser;
-      },
-    );
-
-    await _apiService.setAuthToken('mock_jwt_token_${existing.id}');
-    return existing;
+    // Network connection failed
+    throw Exception('Unable to connect to the server. Please check your network connection.');
   }
 
   // CRUD #2: Read User Profile
@@ -151,6 +145,15 @@ class AuthService {
 
   // CRUD #4: Deactivate/Delete User
   Future<bool> deactivateUser(String userId) async {
+    if (_apiService.authToken == null) {
+      final index = _dataStore.users.indexWhere((u) => u.id == userId);
+      if (index != -1) {
+        _dataStore.users[index] = _dataStore.users[index].copyWith(isActive: false);
+      }
+      await logout();
+      return true;
+    }
+
     final response = await _apiService.post(ApiConstants.deactivateAccount, {
       'userId': userId,
     });

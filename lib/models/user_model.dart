@@ -26,13 +26,16 @@ class UserModel {
       email: json['email'] ?? '',
       phone: json['phone'] ?? '',
       role: json['role'] ?? 'donor',
-      isActive: json['isActive'] ?? true,
+      isActive: json['isActive'] ?? (json['status'] != 'DEACTIVATED'),
       fcmToken: json['fcmToken'],
       createdAt: json['createdAt'] != null
           ? DateTime.tryParse(json['createdAt']) ?? DateTime.now()
           : DateTime.now(),
     );
   }
+
+  bool get isDeactivated => !isActive;
+  String get status => isActive ? 'ACTIVE' : 'DEACTIVATED';
 
   Map<String, dynamic> toJson() {
     return {

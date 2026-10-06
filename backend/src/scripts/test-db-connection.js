@@ -24,6 +24,8 @@ async function testConnection() {
     const result = await prisma.$queryRaw`SELECT 1 as connected`;
     console.log('✅ Successfully connected to Supabase PostgreSQL database!');
     console.log('   Result:', result);
+    const user = await prisma.user.findFirst();
+    console.log('   First user in DB:', user ? { id: user.id, email: user.email, isActive: user.isActive } : null);
     await prisma.$disconnect();
     process.exit(0);
   } catch (error) {
