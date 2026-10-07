@@ -227,21 +227,52 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                             ),
                             const SizedBox(height: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: themeColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                isDonor ? 'ACTIVE DONOR' : 'RECIPIENT / CAREGIVER',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w800,
-                                  color: themeColor,
-                                  letterSpacing: 0.8,
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: themeColor.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    isDonor ? 'ACTIVE DONOR' : 'RECIPIENT / CAREGIVER',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                      color: themeColor,
+                                      letterSpacing: 0.8,
+                                    ),
+                                  ),
                                 ),
-                              ),
+                                if (user != null && user.idNumber.isNotEmpty)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.background,
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: AppColors.border),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.badge_outlined, size: 11, color: AppColors.textSecondary),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          user.idNumber,
+                                          style: const TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w700,
+                                            color: AppColors.textPrimary,
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                              ],
                             ),
                           ],
                         ),
@@ -345,7 +376,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _buildSettingTile(
                     icon: Icons.person_outline_rounded,
                     title: 'Edit Personal Profile',
-                    subtitle: 'Name, phone number, contact details',
+                    subtitle: 'Name, ID number, phone, contact details',
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(builder: (_) => const EditProfileScreen()),

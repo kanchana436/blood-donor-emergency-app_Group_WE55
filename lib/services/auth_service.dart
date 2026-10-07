@@ -1,5 +1,6 @@
 import 'package:uuid/uuid.dart';
 import '../models/user_model.dart';
+import '../models/donor_profile_model.dart';
 import '../core/constants/api_constants.dart';
 import 'api_service.dart';
 import 'mock_data_store.dart';
@@ -16,8 +17,14 @@ class AuthService {
     required String phone,
     required String password,
     required String role, // 'donor' or 'recipient'
+    required String idNumber,
+    String? bloodGroup,
+    String? city,
+    String? address,
+    double? weightKg,
   }) async {
     final normalizedEmail = email.trim().toLowerCase();
+    final cleanIdNumber = idNumber.trim();
 
     // Attempt REST backend
     final response = await _apiService.post(ApiConstants.register, {
@@ -26,17 +33,26 @@ class AuthService {
       'phone': phone.trim(),
       'password': password,
       'role': role,
+      'idNumber': cleanIdNumber,
+      if (bloodGroup != null) 'bloodGroup': bloodGroup,
+      if (city != null) 'city': city,
+      if (address != null) 'address': address,
+      if (weightKg != null) 'weightKg': weightKg,
     });
 
     if (response.success && response.data != null) {
       final user = UserModel.fromJson(response.data['user'] ?? response.data);
+      if (response.data['profile'] != null) {
+        final profile = DonorProfileModel.fromJson(response.data['profile']);
+        _dataStore.donorProfiles[user.id] = profile;
+      }
       if (response.data['token'] != null) {
         await _apiService.setAuthToken(response.data['token']);
       }
       return user;
     }
 
-    // If server responded with a rejection error (e.g. duplicate email), bubble it up
+    // If server responded with a rejection error (e.g. duplicate email/id), bubble it up
     if (response.message != null && !response.message!.contains('Could not connect')) {
       throw Exception(response.message);
     }
@@ -49,8 +65,16 @@ class AuthService {
       throw Exception('An account with this email already exists.');
     }
 
+    final existsLocalId = _dataStore.users.any(
+      (u) => u.idNumber.isNotEmpty && u.idNumber.toLowerCase() == cleanIdNumber.toLowerCase(),
+    );
+    if (existsLocalId) {
+      throw Exception('An account with this ID Number already exists.');
+    }
+
     final newUser = UserModel(
       id: 'usr_${_uuid.v4().substring(0, 8)}',
+      idNumber: cleanIdNumber,
       name: name.trim(),
       email: normalizedEmail,
       phone: phone.trim(),
@@ -59,6 +83,17 @@ class AuthService {
       createdAt: DateTime.now(),
     );
     _dataStore.users.add(newUser);
+    if (role == 'donor' || bloodGroup != null) {
+      _dataStore.donorProfiles[newUser.id] = DonorProfileModel(
+        id: 'dp_${_uuid.v4().substring(0, 8)}',
+        userId: newUser.id,
+        bloodGroup: bloodGroup ?? 'O+',
+        city: city ?? 'Colombo',
+        address: address ?? '',
+        weightKg: weightKg,
+        isAvailable: true,
+      );
+    }
     await _apiService.setAuthToken('mock_jwt_token_${newUser.id}');
     return newUser;
   }
@@ -113,12 +148,14 @@ class AuthService {
     required String name,
     required String phone,
     String? email,
+    String? idNumber,
   }) async {
     final response = await _apiService.put(ApiConstants.updateProfile, {
       'userId': userId,
       'name': name,
       'phone': phone,
       if (email != null) 'email': email,
+      if (idNumber != null) 'idNumber': idNumber.trim(),
     });
 
     if (response.success && response.data != null) {
@@ -132,10 +169,20 @@ class AuthService {
     // Mock fallback
     final index = _dataStore.users.indexWhere((u) => u.id == userId);
     if (index != -1) {
+      if (idNumber != null && idNumber.trim().isNotEmpty) {
+        final conflict = _dataStore.users.any(
+          (u) => u.id != userId && u.idNumber.isNotEmpty && u.idNumber.toLowerCase() == idNumber.trim().toLowerCase(),
+        );
+        if (conflict) {
+          throw Exception('An account with this ID Number already exists.');
+        }
+      }
+
       final updated = _dataStore.users[index].copyWith(
         name: name,
         phone: phone,
         email: email ?? _dataStore.users[index].email,
+        idNumber: idNumber?.trim() ?? _dataStore.users[index].idNumber,
       );
       _dataStore.users[index] = updated;
       return updated;

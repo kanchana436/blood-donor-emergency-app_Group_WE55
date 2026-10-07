@@ -25,6 +25,7 @@ class MockDataStore {
     // Current Donor User
     final donorUser = UserModel(
       id: 'usr_donor_101',
+      idNumber: '851234567V',
       name: 'Alexander Silva',
       email: 'alexander@lifelink.org',
       phone: '+94 77 123 4567',
@@ -48,11 +49,111 @@ class MockDataStore {
       livesSaved: 12,
       eligibilityStatus: 'Eligible',
       weightKg: 72.5,
+      userName: donorUser.name,
+      userPhone: donorUser.phone,
+    );
+
+    // Additional Seed Donors across cities and statuses
+    final donorUser2 = UserModel(
+      id: 'usr_donor_102',
+      idNumber: '891234567V',
+      name: 'Kasun Fernando',
+      email: 'kasun.f@lifelink.org',
+      phone: '+94 76 555 4321',
+      role: 'donor',
+      isActive: true,
+    );
+    users.add(donorUser2);
+    donorProfiles[donorUser2.id] = DonorProfileModel(
+      id: 'dp_102',
+      userId: donorUser2.id,
+      bloodGroup: 'A+',
+      isAvailable: true,
+      city: 'Kandy',
+      address: 'Peradeniya Road, Kandy',
+      latitude: 7.2906,
+      longitude: 80.6337,
+      totalDonations: 3,
+      livesSaved: 9,
+      userName: donorUser2.name,
+      userPhone: donorUser2.phone,
+    );
+
+    final donorUser3 = UserModel(
+      id: 'usr_donor_103',
+      idNumber: '911234567V',
+      name: 'Nipuni Wickramasinghe',
+      email: 'nipuni.w@lifelink.org',
+      phone: '+94 70 888 9999',
+      role: 'donor',
+      isActive: true,
+    );
+    users.add(donorUser3);
+    donorProfiles[donorUser3.id] = DonorProfileModel(
+      id: 'dp_103',
+      userId: donorUser3.id,
+      bloodGroup: 'B+',
+      isAvailable: true,
+      city: 'Galle',
+      address: 'Fort Road, Galle',
+      latitude: 6.0535,
+      longitude: 80.2210,
+      totalDonations: 2,
+      livesSaved: 6,
+      userName: donorUser3.name,
+      userPhone: donorUser3.phone,
+    );
+
+    // Unavailable Donor (should be excluded by default available filter)
+    final donorUser4 = UserModel(
+      id: 'usr_donor_104',
+      idNumber: '931234567V',
+      name: 'Dinesh Kumara (Unavailable)',
+      email: 'dinesh.k@lifelink.org',
+      phone: '+94 77 999 1111',
+      role: 'donor',
+      isActive: true,
+    );
+    users.add(donorUser4);
+    donorProfiles[donorUser4.id] = DonorProfileModel(
+      id: 'dp_104',
+      userId: donorUser4.id,
+      bloodGroup: 'O+',
+      isAvailable: false,
+      city: 'Colombo',
+      address: 'Borella, Colombo',
+      totalDonations: 1,
+      livesSaved: 3,
+      userName: donorUser4.name,
+      userPhone: donorUser4.phone,
+    );
+
+    // Deactivated Donor (should NEVER be displayed)
+    final donorUser5 = UserModel(
+      id: 'usr_donor_105',
+      idNumber: '941234567V',
+      name: 'Ruwan Perera (Deactivated)',
+      email: 'ruwan.p@lifelink.org',
+      phone: '+94 71 222 3333',
+      role: 'donor',
+      isActive: false, // Deactivated!
+    );
+    users.add(donorUser5);
+    donorProfiles[donorUser5.id] = DonorProfileModel(
+      id: 'dp_105',
+      userId: donorUser5.id,
+      bloodGroup: 'O+',
+      isAvailable: true,
+      city: 'Colombo',
+      address: 'Nugegoda, Colombo',
+      userName: donorUser5.name,
+      userPhone: donorUser5.phone,
     );
 
     // Current Recipient User
     final recipientUser = UserModel(
       id: 'usr_recip_202',
+      idNumber: '921234567V',
       name: 'Sarah Perera',
       email: 'sarah.p@lifelink.org',
       phone: '+94 71 987 6543',
@@ -291,5 +392,55 @@ class MockDataStore {
       }
     }
     return matches;
+  }
+
+  // --- Search / Filter Donors by Location & Blood Group & Availability ---
+  List<DonorProfileModel> searchDonors({
+    String? city,
+    String? bloodGroup,
+    bool? isAvailable,
+  }) {
+    final cleanCity = city?.trim().toLowerCase();
+    final targetAvailable = isAvailable ?? true;
+
+    return donorProfiles.values.where((p) {
+      final user = users.firstWhere(
+        (u) => u.id == p.userId,
+        orElse: () => UserModel(
+          id: p.userId,
+          idNumber: '900000000V',
+          name: 'LifeLink Donor',
+          email: '',
+          phone: '+94 77 123 4567',
+          role: 'donor',
+          isActive: true,
+        ),
+      );
+
+      // Requirement: Exclude deactivated donors
+      if (!user.isActive) return false;
+
+      // Requirement: Exclude unavailable donors unless specifically asked
+      if (isAvailable != null && p.isAvailable != targetAvailable) return false;
+
+      // Blood group filter
+      if (bloodGroup != null && bloodGroup != 'All' && p.bloodGroup.toUpperCase() != bloodGroup.toUpperCase()) {
+        return false;
+      }
+
+      // City filter: case-insensitive, handles leading/trailing spaces
+      if (cleanCity != null && cleanCity.isNotEmpty) {
+        if (p.city.isEmpty) return false;
+        if (!p.city.toLowerCase().contains(cleanCity)) return false;
+      }
+
+      return true;
+    }).map((p) {
+      final user = users.firstWhere(
+        (u) => u.id == p.userId,
+        orElse: () => users.first,
+      );
+      return p.copyWith(userName: user.name, userPhone: user.phone);
+    }).toList();
   }
 }

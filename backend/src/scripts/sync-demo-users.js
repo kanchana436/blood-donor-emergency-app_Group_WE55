@@ -18,6 +18,7 @@ async function syncWithRetry(retries = 3) {
       const donorUser = await prisma.user.upsert({
         where: { id: 'usr_donor_101' },
         update: {
+          idNumber: '851234567V',
           name: 'Alexander Silva',
           email: 'alexander@lifelink.org',
           phone: '+94 77 123 4567',
@@ -27,6 +28,7 @@ async function syncWithRetry(retries = 3) {
         },
         create: {
           id: 'usr_donor_101',
+          idNumber: '851234567V',
           name: 'Alexander Silva',
           email: 'alexander@lifelink.org',
           phone: '+94 77 123 4567',
@@ -61,6 +63,7 @@ async function syncWithRetry(retries = 3) {
       const recipUser = await prisma.user.upsert({
         where: { id: 'usr_recip_202' },
         update: {
+          idNumber: '921234567V',
           name: 'Sarah Perera',
           email: 'sarah.p@lifelink.org',
           phone: '+94 71 987 6543',
@@ -70,6 +73,7 @@ async function syncWithRetry(retries = 3) {
         },
         create: {
           id: 'usr_recip_202',
+          idNumber: '921234567V',
           name: 'Sarah Perera',
           email: 'sarah.p@lifelink.org',
           phone: '+94 71 987 6543',

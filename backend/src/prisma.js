@@ -13,9 +13,12 @@ try {
         await prisma.$executeRawUnsafe(
           'CREATE UNIQUE INDEX IF NOT EXISTS "User_email_lower_key" ON public."User" (LOWER(email));'
         );
-        console.log('🔒 Case-insensitive unique constraint on email verified at database level.');
+        await prisma.$executeRawUnsafe(
+          'CREATE UNIQUE INDEX IF NOT EXISTS "User_id_number_lower_key" ON public."User" (LOWER(TRIM("id_number")));'
+        );
+        console.log('🔒 Case-insensitive unique constraints on email and id_number verified at database level.');
       } catch (idxErr) {
-        console.warn('Notice: Could not verify User_email_lower_key index:', idxErr.message);
+        console.warn('Notice: Could not verify unique index:', idxErr.message);
       }
     })
     .catch((err) => {
@@ -31,6 +34,7 @@ const db = {
   users: [
     {
       id: 'usr_donor_101',
+      idNumber: '851234567V',
       name: 'Alexander Silva',
       email: 'alexander@lifelink.org',
       password: '$2b$10$ptyCpgrP1zFvd5ZkvOBlfuSitg6nal24yUMVxSTuLxC.iYuwnvioC', // password123
@@ -41,6 +45,7 @@ const db = {
     },
     {
       id: 'usr_recip_202',
+      idNumber: '921234567V',
       name: 'Sarah Perera',
       email: 'sarah.p@lifelink.org',
       password: '$2b$10$ptyCpgrP1zFvd5ZkvOBlfuSitg6nal24yUMVxSTuLxC.iYuwnvioC', // password123

@@ -14,6 +14,7 @@ class ApiConstants {
   static const String deactivateAccount = '/auth/deactivate';
 
   // Donor endpoints
+  static const String searchDonors = '/donors';
   static const String donorProfile = '/donors/profile';
   static const String updateDonorProfile = '/donors/profile';
   static const String donorCompatibleRequests = '/donors/requests/compatible';

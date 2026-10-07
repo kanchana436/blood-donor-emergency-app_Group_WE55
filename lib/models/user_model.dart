@@ -1,5 +1,6 @@
 class UserModel {
   final String id;
+  final String idNumber;
   final String name;
   final String email;
   final String phone;
@@ -10,6 +11,7 @@ class UserModel {
 
   UserModel({
     required this.id,
+    this.idNumber = '',
     required this.name,
     required this.email,
     required this.phone,
@@ -22,6 +24,7 @@ class UserModel {
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
       id: json['id'] ?? '',
+      idNumber: (json['idNumber'] ?? json['id_number'] ?? '').toString(),
       name: json['name'] ?? '',
       email: json['email'] ?? '',
       phone: json['phone'] ?? '',
@@ -40,6 +43,8 @@ class UserModel {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'idNumber': idNumber,
+      'id_number': idNumber,
       'name': name,
       'email': email,
       'phone': phone,
@@ -52,6 +57,7 @@ class UserModel {
 
   UserModel copyWith({
     String? id,
+    String? idNumber,
     String? name,
     String? email,
     String? phone,
@@ -62,6 +68,7 @@ class UserModel {
   }) {
     return UserModel(
       id: id ?? this.id,
+      idNumber: idNumber ?? this.idNumber,
       name: name ?? this.name,
       email: email ?? this.email,
       phone: phone ?? this.phone,

@@ -89,6 +89,11 @@ class AuthProvider with ChangeNotifier {
     required String phone,
     required String password,
     required String role,
+    required String idNumber,
+    String? bloodGroup,
+    String? city,
+    String? address,
+    double? weightKg,
   }) async {
     _isLoading = true;
     _errorMessage = null;
@@ -101,6 +106,11 @@ class AuthProvider with ChangeNotifier {
         phone: phone,
         password: password,
         role: role,
+        idNumber: idNumber,
+        bloodGroup: bloodGroup,
+        city: city,
+        address: address,
+        weightKg: weightKg,
       );
       _currentUser = user;
       _activeRole = role;
@@ -149,9 +159,11 @@ class AuthProvider with ChangeNotifier {
     required String name,
     required String phone,
     String? email,
+    String? idNumber,
   }) async {
     if (_currentUser == null) return false;
     _isLoading = true;
+    _errorMessage = null;
     notifyListeners();
 
     try {
@@ -160,6 +172,7 @@ class AuthProvider with ChangeNotifier {
         name: name,
         phone: phone,
         email: email,
+        idNumber: idNumber,
       );
       _currentUser = updated;
       await _saveSession(updated, _activeRole);
@@ -168,7 +181,8 @@ class AuthProvider with ChangeNotifier {
       return true;
     } catch (e) {
       _isLoading = false;
-      _errorMessage = e.toString();
+      final msg = e.toString().replaceFirst('Exception: ', '').trim();
+      _errorMessage = msg.isNotEmpty ? msg : 'Failed to update profile.';
       notifyListeners();
       return false;
     }

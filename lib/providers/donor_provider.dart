@@ -208,4 +208,17 @@ class DonorProvider with ChangeNotifier {
       return false;
     }
   }
+
+  // Search / Filter Donors
+  Future<List<DonorProfileModel>> searchDonors({
+    String? city,
+    String? bloodGroup,
+    bool? isAvailable = true,
+  }) async {
+    return _donorService.searchDonors(
+      city: city,
+      bloodGroup: bloodGroup,
+      isAvailable: isAvailable,
+    );
+  }
 }

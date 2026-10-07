@@ -26,6 +26,7 @@ async function testRegistrationFlow() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: 'Flow Test Donor',
+        idNumber: `NIC${timestamp.toString().slice(-8)}V`,
         email: testEmailLower,
         phone: '+94 77 111 2233',
         password: 'Password123!',
@@ -60,6 +61,7 @@ async function testRegistrationFlow() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: 'Another User',
+        idNumber: `NIC${(timestamp + 2).toString().slice(-8)}V`,
         email: testEmailLower,
         phone: '+94 77 999 8888',
         password: 'Password123!',
@@ -86,6 +88,7 @@ async function testRegistrationFlow() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: 'Uppercase User',
+        idNumber: `NIC${(timestamp + 3).toString().slice(-8)}V`,
         email: testEmailUpper,
         phone: '+94 77 555 4444',
         password: 'Password123!',
@@ -112,6 +115,7 @@ async function testRegistrationFlow() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: 'MixedCase User',
+        idNumber: `NIC${(timestamp + 4).toString().slice(-8)}V`,
         email: testEmailMixed,
         phone: '+94 77 333 2222',
         password: 'Password123!',
@@ -139,6 +143,7 @@ async function testRegistrationFlow() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: 'Flow Test Recipient',
+        idNumber: `NIC${(timestamp + 5).toString().slice(-8)}V`,
         email: recipientEmail,
         phone: '+94 71 888 9900',
         password: 'Password123!',
@@ -163,6 +168,7 @@ async function testRegistrationFlow() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: 'Another Recipient',
+        idNumber: `NIC${(timestamp + 6).toString().slice(-8)}V`,
         email: recipientEmail.toUpperCase(),
         phone: '+94 71 777 6655',
         password: 'Password123!',
@@ -188,6 +194,7 @@ async function testRegistrationFlow() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: 'Direct Duplicate',
+          idNumber: `NIC${(timestamp + 7).toString().slice(-8)}V`,
           email: testEmailLower,
           phone: '+94 77 000 0000',
           password: 'hashed_dummy_password',

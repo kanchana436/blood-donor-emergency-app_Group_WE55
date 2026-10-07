@@ -9,6 +9,7 @@ datasource db {
 
 model User {
   id        String   @id @default(uuid())
+  idNumber  String   @unique @map("id_number")
   name      String
   email     String   @unique
   phone     String

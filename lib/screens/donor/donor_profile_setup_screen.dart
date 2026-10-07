@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/validators.dart';
 import '../../providers/donor_provider.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
@@ -9,12 +10,12 @@ import 'donor_main_navigation.dart';
 
 class DonorProfileSetupScreen extends StatefulWidget {
   final String userId;
-  final String initialBloodGroup;
+  final String? initialBloodGroup;
 
   const DonorProfileSetupScreen({
     super.key,
     required this.userId,
-    this.initialBloodGroup = 'O+',
+    this.initialBloodGroup,
   });
 
   @override
@@ -23,7 +24,7 @@ class DonorProfileSetupScreen extends StatefulWidget {
 
 class _DonorProfileSetupScreenState extends State<DonorProfileSetupScreen> {
   final _formKey = GlobalKey<FormState>();
-  late String _selectedBloodGroup;
+  String? _selectedBloodGroup;
   late TextEditingController _cityController;
   late TextEditingController _addressController;
   late TextEditingController _weightController;
@@ -44,7 +45,7 @@ class _DonorProfileSetupScreenState extends State<DonorProfileSetupScreen> {
             ? (currentProfile.weightKg! % 1 == 0
                 ? currentProfile.weightKg!.toInt().toString()
                 : currentProfile.weightKg!.toString())
-            : '65',
+            : '',
       );
       _isAvailable = currentProfile.isAvailable;
     } else {
@@ -74,14 +75,8 @@ class _DonorProfileSetupScreenState extends State<DonorProfileSetupScreen> {
             ? (profile.weightKg! % 1 == 0
                 ? profile.weightKg!.toInt().toString()
                 : profile.weightKg!.toString())
-            : '65';
+            : '';
         _isAvailable = profile.isAvailable;
-      });
-    } else {
-      setState(() {
-        if (_cityController.text.isEmpty) _cityController.text = 'Colombo';
-        if (_addressController.text.isEmpty) _addressController.text = 'No 45, Galle Road, Colombo 03';
-        if (_weightController.text.isEmpty) _weightController.text = '68';
       });
     }
   }
@@ -98,20 +93,11 @@ class _DonorProfileSetupScreenState extends State<DonorProfileSetupScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final donorProvider = Provider.of<DonorProvider>(context, listen: false);
-
-    final weight = double.tryParse(_weightController.text);
-    if (weight != null && weight < 50) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Donors must typically weigh at least 50 kg for blood donation safety.'),
-          backgroundColor: AppColors.warning,
-        ),
-      );
-    }
+    final weight = double.tryParse(_weightController.text.trim());
 
     final success = await donorProvider.setupProfile(
       userId: widget.userId,
-      bloodGroup: _selectedBloodGroup,
+      bloodGroup: _selectedBloodGroup!,
       city: _cityController.text.trim(),
       address: _addressController.text.trim(),
       isAvailable: _isAvailable,
@@ -191,24 +177,67 @@ class _DonorProfileSetupScreenState extends State<DonorProfileSetupScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                const Text(
-                  'Select Blood Group',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                BloodGroupSelector(
-                  selectedGroup: _selectedBloodGroup,
-                  onSelected: (group) {
-                    setState(() {
-                      _selectedBloodGroup = group;
-                    });
+
+                // 4. Blood Group
+                FormField<String>(
+                  validator: (val) => FormValidators.validateBloodGroup(_selectedBloodGroup),
+                  builder: (fieldState) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
+                          children: [
+                            Text(
+                              'Select Blood Group',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            Text(
+                              ' *',
+                              style: TextStyle(
+                                color: AppColors.error,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        BloodGroupSelector(
+                          selectedGroup: _selectedBloodGroup,
+                          onSelected: (group) {
+                            setState(() {
+                              _selectedBloodGroup = group;
+                            });
+                            fieldState.didChange(group);
+                          },
+                        ),
+                        if (fieldState.hasError) ...[
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              const Icon(Icons.error_outline, size: 14, color: AppColors.error),
+                              const SizedBox(width: 6),
+                              Text(
+                                fieldState.errorText!,
+                                style: const TextStyle(
+                                  color: AppColors.error,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    );
                   },
                 ),
                 const SizedBox(height: 24),
+
+                // Availability Switch
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
@@ -254,46 +283,39 @@ class _DonorProfileSetupScreenState extends State<DonorProfileSetupScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
+
+                // 5. City
                 CustomTextField(
                   controller: _cityController,
                   label: 'City / Region',
                   hintText: 'e.g. Colombo',
                   prefixIcon: Icons.location_city_outlined,
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Please enter your city';
-                    }
-                    return null;
-                  },
+                  validator: FormValidators.validateCity,
                 ),
                 const SizedBox(height: 16),
+
+                // 6. Living Address
                 CustomTextField(
                   controller: _addressController,
                   label: 'Living Address',
                   hintText: 'e.g. Street name, area',
                   prefixIcon: Icons.home_outlined,
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Please enter your address';
-                    }
-                    return null;
-                  },
+                  validator: FormValidators.validateLivingAddress,
                 ),
                 const SizedBox(height: 16),
+
+                // 7. Body Weight
                 CustomTextField(
                   controller: _weightController,
                   label: 'Body Weight (kg)',
                   hintText: 'e.g. 65',
                   prefixIcon: Icons.monitor_weight_outlined,
-                  keyboardType: TextInputType.number,
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Please enter your weight';
-                    }
-                    return null;
-                  },
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  suffixText: 'kg',
+                  validator: FormValidators.validateBodyWeight,
                 ),
                 const SizedBox(height: 32),
+
                 CustomButton(
                   text: 'Complete Profile & Continue',
                   isLoading: donorProvider.isLoading,

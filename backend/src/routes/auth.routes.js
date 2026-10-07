@@ -4,6 +4,16 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { prisma, db } = require('../prisma');
 const { authenticateToken } = require('../middleware/auth.middleware');
+const {
+  validateFullName,
+  validateEmail,
+  validatePhone,
+  validateBloodGroup,
+  validateCity,
+  validateLivingAddress,
+  validateBodyWeight,
+  validateIdNumber,
+} = require('../utils/validation');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'lifelink_secret_2026';
 
@@ -12,6 +22,7 @@ function sanitizeUser(user) {
   const { password, ...safeUser } = user;
   return {
     ...safeUser,
+    idNumber: user.idNumber || user.id_number || '',
     status: safeUser.isActive === false ? 'DEACTIVATED' : 'ACTIVE',
   };
 }
@@ -19,19 +30,118 @@ function sanitizeUser(user) {
 // POST /api/auth/register
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, phone, password, role } = req.body;
+    const {
+      name,
+      email,
+      phone,
+      password,
+      role,
+      idNumber,
+      id_number,
+      bloodGroup,
+      city,
+      address,
+      livingAddress,
+      weightKg,
+      bodyWeight,
+    } = req.body;
 
-    if (!name || !email || !phone) {
-      return res.status(400).json({ success: false, message: 'Name, email, and phone are required' });
+    // 1. Full Name validation
+    const nameValidation = validateFullName(name);
+    if (!nameValidation.valid) {
+      return res.status(400).json({ success: false, message: nameValidation.message });
+    }
+    const cleanName = nameValidation.value;
+
+    // 2. Email Address validation
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.valid) {
+      return res.status(400).json({ success: false, message: emailValidation.message });
+    }
+    const normalizedEmail = emailValidation.value;
+
+    // 3. Phone Number validation
+    const phoneValidation = validatePhone(phone);
+    if (!phoneValidation.valid) {
+      return res.status(400).json({ success: false, message: phoneValidation.message });
+    }
+    const cleanPhone = phoneValidation.value;
+
+    // ID Number validation
+    const rawIdNumber = idNumber !== undefined ? idNumber : id_number;
+    const idValidation = validateIdNumber(rawIdNumber);
+    if (!idValidation.valid) {
+      return res.status(400).json({ success: false, message: idValidation.message });
+    }
+    const cleanIdNumber = idValidation.value;
+
+    // Password validation
+    if (!password || typeof password !== 'string' || password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
     }
 
-    const normalizedEmail = email.toLowerCase().trim();
+    // Role check
+    const userRole = role || 'donor';
+
+    // 4-7. Additional validations for Donor / when profile fields are supplied
+    let cleanBloodGroup = null;
+    let cleanCity = null;
+    let cleanAddress = null;
+    let cleanWeight = null;
+
+    const hasDonorFields =
+      bloodGroup !== undefined ||
+      city !== undefined ||
+      address !== undefined ||
+      livingAddress !== undefined ||
+      weightKg !== undefined ||
+      bodyWeight !== undefined;
+
+    if (userRole === 'donor' || hasDonorFields) {
+      // 4. Blood Group
+      if (bloodGroup !== undefined || userRole === 'donor') {
+        const bloodValidation = validateBloodGroup(bloodGroup);
+        if (!bloodValidation.valid) {
+          return res.status(400).json({ success: false, message: bloodValidation.message });
+        }
+        cleanBloodGroup = bloodValidation.value;
+      }
+
+      // 5. City
+      if (city !== undefined || userRole === 'donor') {
+        const cityValidation = validateCity(city);
+        if (!cityValidation.valid) {
+          return res.status(400).json({ success: false, message: cityValidation.message });
+        }
+        cleanCity = cityValidation.value;
+      }
+
+      // 6. Living Address
+      const rawAddress = address !== undefined ? address : livingAddress;
+      if (rawAddress !== undefined || userRole === 'donor') {
+        const addressValidation = validateLivingAddress(rawAddress);
+        if (!addressValidation.valid) {
+          return res.status(400).json({ success: false, message: addressValidation.message });
+        }
+        cleanAddress = addressValidation.value;
+      }
+
+      // 7. Body Weight
+      const rawWeight = weightKg !== undefined ? weightKg : bodyWeight;
+      if (rawWeight !== undefined || userRole === 'donor') {
+        const weightValidation = validateBodyWeight(rawWeight);
+        if (!weightValidation.valid) {
+          return res.status(400).json({ success: false, message: weightValidation.message });
+        }
+        cleanWeight = weightValidation.value;
+      }
+    }
 
     // 1. Try Prisma / Supabase
     if (prisma) {
       try {
         // Case-insensitive email existence check before creating user
-        const existing = await prisma.user.findFirst({
+        const existingEmail = await prisma.user.findFirst({
           where: {
             email: {
               equals: normalizedEmail,
@@ -40,24 +150,65 @@ router.post('/register', async (req, res) => {
           },
         });
 
-        if (existing) {
+        if (existingEmail) {
           return res.status(400).json({
             success: false,
             message: 'An account with this email already exists.',
           });
         }
 
+        // Case-insensitive ID Number existence check before creating user
+        const existingId = await prisma.user.findFirst({
+          where: {
+            idNumber: {
+              equals: cleanIdNumber,
+              mode: 'insensitive',
+            },
+          },
+        });
+
+        if (existingId) {
+          return res.status(400).json({
+            success: false,
+            message: 'An account with this ID Number already exists.',
+          });
+        }
+
         const hashedPassword = await bcrypt.hash(password || 'lifelink123', 10);
         const createdUser = await prisma.user.create({
           data: {
-            name: name.trim(),
+            idNumber: cleanIdNumber,
+            name: cleanName,
             email: normalizedEmail,
-            phone: phone.trim(),
+            phone: cleanPhone,
             password: hashedPassword,
-            role: role || 'donor',
+            role: userRole,
             isActive: true,
           },
         });
+
+        // If donor profile fields are present, create DonorProfile in database
+        let donorProfile = null;
+        if (cleanBloodGroup || userRole === 'donor') {
+          donorProfile = await prisma.donorProfile.upsert({
+            where: { userId: createdUser.id },
+            update: {
+              bloodGroup: cleanBloodGroup || 'O+',
+              city: cleanCity || 'Colombo',
+              address: cleanAddress || '',
+              weightKg: cleanWeight,
+              isAvailable: true,
+            },
+            create: {
+              userId: createdUser.id,
+              bloodGroup: cleanBloodGroup || 'O+',
+              city: cleanCity || 'Colombo',
+              address: cleanAddress || '',
+              weightKg: cleanWeight,
+              isAvailable: true,
+            },
+          });
+        }
 
         // Mirror in in-memory store for fallback parity
         const safe = sanitizeUser(createdUser);
@@ -72,15 +223,39 @@ router.post('/register', async (req, res) => {
           db.users.push(memoryUserRecord);
         }
 
+        if (donorProfile) {
+          const existingProfIdx = db.donorProfiles.findIndex(p => p.userId === createdUser.id);
+          if (existingProfIdx !== -1) {
+            db.donorProfiles[existingProfIdx] = donorProfile;
+          } else {
+            db.donorProfiles.push(donorProfile);
+          }
+        }
+
         const token = jwt.sign({ id: createdUser.id, role: createdUser.role }, JWT_SECRET, { expiresIn: '30d' });
 
         return res.status(201).json({
           success: true,
           message: 'Account registered successfully',
-          data: { user: safe, token },
+          data: { user: safe, profile: donorProfile, token },
         });
       } catch (dbError) {
         // Handle database-level unique constraint error (P2002 or Postgres duplicate key)
+        if (
+          dbError.code === 'P2002' ||
+          (dbError.message && (
+            dbError.message.includes('id_number') ||
+            dbError.message.includes('idNumber') ||
+            dbError.message.includes('User_id_number_lower_key') ||
+            dbError.message.includes('User_id_number_key')
+          ))
+        ) {
+          return res.status(400).json({
+            success: false,
+            message: 'An account with this ID Number already exists.',
+          });
+        }
+
         if (
           dbError.code === 'P2002' ||
           (dbError.message && (
@@ -109,25 +284,54 @@ router.post('/register', async (req, res) => {
       });
     }
 
+    const existingMemoryId = db.users.find(u => u.idNumber && u.idNumber.toLowerCase() === cleanIdNumber.toLowerCase());
+    if (existingMemoryId) {
+      return res.status(400).json({
+        success: false,
+        message: 'An account with this ID Number already exists.',
+      });
+    }
+
     const hashedPasswordFallback = await bcrypt.hash(password || 'lifelink123', 10);
     const newUser = {
       id: `usr_${Date.now()}`,
-      name: name.trim(),
+      idNumber: cleanIdNumber,
+      name: cleanName,
       email: normalizedEmail,
-      phone: phone.trim(),
+      phone: cleanPhone,
       password: hashedPasswordFallback,
-      role: role || 'donor',
+      role: userRole,
       isActive: true,
       createdAt: new Date().toISOString(),
     };
 
     db.users.push(newUser);
+
+    let donorProfile = null;
+    if (cleanBloodGroup || userRole === 'donor') {
+      donorProfile = {
+        id: `dp_${Date.now()}`,
+        userId: newUser.id,
+        bloodGroup: cleanBloodGroup || 'O+',
+        city: cleanCity || 'Colombo',
+        address: cleanAddress || '',
+        isAvailable: true,
+        latitude: 6.9271,
+        longitude: 79.8612,
+        totalDonations: 0,
+        livesSaved: 0,
+        eligibilityStatus: 'Eligible',
+        weightKg: cleanWeight,
+      };
+      db.donorProfiles.push(donorProfile);
+    }
+
     const token = jwt.sign({ id: newUser.id, role: newUser.role }, JWT_SECRET, { expiresIn: '30d' });
 
     return res.status(201).json({
       success: true,
       message: 'Account registered successfully (in-memory mode)',
-      data: { user: sanitizeUser(newUser), token },
+      data: { user: sanitizeUser(newUser), profile: donorProfile, token },
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
@@ -340,8 +544,62 @@ router.get('/users', async (req, res) => {
 // PUT /api/auth/profile
 router.put('/profile', async (req, res) => {
   try {
-    const { userId, name, phone, email } = req.body;
-    const normalizedEmail = email ? email.toLowerCase().trim() : undefined;
+    const { userId, name, phone, email, idNumber, id_number } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'User ID is required' });
+    }
+
+    // Security: verify caller cannot modify another user's profile/ID Number
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const decoded = jwt.verify(authHeader.split(' ')[1], JWT_SECRET);
+        if (decoded.id && decoded.id !== userId && decoded.role !== 'admin' && decoded.role !== 'manager') {
+          return res.status(403).json({
+            success: false,
+            message: 'You are not authorized to update another user\'s profile.',
+          });
+        }
+      } catch (_) {}
+    }
+
+    let cleanName = undefined;
+    if (name !== undefined) {
+      const nameValidation = validateFullName(name);
+      if (!nameValidation.valid) {
+        return res.status(400).json({ success: false, message: nameValidation.message });
+      }
+      cleanName = nameValidation.value;
+    }
+
+    let normalizedEmail = undefined;
+    if (email !== undefined) {
+      const emailValidation = validateEmail(email);
+      if (!emailValidation.valid) {
+        return res.status(400).json({ success: false, message: emailValidation.message });
+      }
+      normalizedEmail = emailValidation.value;
+    }
+
+    let cleanPhone = undefined;
+    if (phone !== undefined) {
+      const phoneValidation = validatePhone(phone);
+      if (!phoneValidation.valid) {
+        return res.status(400).json({ success: false, message: phoneValidation.message });
+      }
+      cleanPhone = phoneValidation.value;
+    }
+
+    const rawIdNumber = idNumber !== undefined ? idNumber : id_number;
+    let cleanIdNumber = undefined;
+    if (rawIdNumber !== undefined) {
+      const idValidation = validateIdNumber(rawIdNumber);
+      if (!idValidation.valid) {
+        return res.status(400).json({ success: false, message: idValidation.message });
+      }
+      cleanIdNumber = idValidation.value;
+    }
 
     if (prisma && userId) {
       try {
@@ -360,16 +618,47 @@ router.put('/profile', async (req, res) => {
           }
         }
 
+        if (cleanIdNumber) {
+          const idConflict = await prisma.user.findFirst({
+            where: {
+              idNumber: { equals: cleanIdNumber, mode: 'insensitive' },
+              id: { not: userId },
+            },
+          });
+          if (idConflict) {
+            return res.status(400).json({
+              success: false,
+              message: 'An account with this ID Number already exists.',
+            });
+          }
+        }
+
         const updated = await prisma.user.update({
           where: { id: userId },
           data: {
-            ...(name ? { name: name.trim() } : {}),
-            ...(phone ? { phone: phone.trim() } : {}),
-            ...(normalizedEmail ? { email: normalizedEmail } : {}),
+            ...(cleanName !== undefined ? { name: cleanName } : {}),
+            ...(cleanPhone !== undefined ? { phone: cleanPhone } : {}),
+            ...(normalizedEmail !== undefined ? { email: normalizedEmail } : {}),
+            ...(cleanIdNumber !== undefined ? { idNumber: cleanIdNumber } : {}),
           },
         });
         return res.json({ success: true, message: 'Profile updated', data: sanitizeUser(updated) });
       } catch (dbError) {
+        if (
+          dbError.code === 'P2002' ||
+          (dbError.message && (
+            dbError.message.includes('id_number') ||
+            dbError.message.includes('idNumber') ||
+            dbError.message.includes('User_id_number_lower_key') ||
+            dbError.message.includes('User_id_number_key')
+          ))
+        ) {
+          return res.status(400).json({
+            success: false,
+            message: 'An account with this ID Number already exists.',
+          });
+        }
+
         if (
           dbError.code === 'P2002' ||
           (dbError.message && (
@@ -403,9 +692,20 @@ router.put('/profile', async (req, res) => {
       }
     }
 
-    if (name) user.name = name.trim();
-    if (phone) user.phone = phone.trim();
+    if (cleanIdNumber) {
+      const idConflict = db.users.find(u => u.id !== userId && u.idNumber && u.idNumber.toLowerCase() === cleanIdNumber.toLowerCase());
+      if (idConflict) {
+        return res.status(400).json({
+          success: false,
+          message: 'An account with this ID Number already exists.',
+        });
+      }
+    }
+
+    if (cleanName !== undefined) user.name = cleanName;
+    if (cleanPhone !== undefined) user.phone = cleanPhone;
     if (normalizedEmail) user.email = normalizedEmail;
+    if (cleanIdNumber) user.idNumber = cleanIdNumber;
 
     return res.json({ success: true, message: 'Profile updated', data: sanitizeUser(user) });
   } catch (error) {

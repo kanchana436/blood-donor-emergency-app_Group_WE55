@@ -10,6 +10,7 @@ async function fixAndVerify() {
   const alex = await prisma.user.upsert({
     where: { id: 'usr_donor_101' },
     update: {
+      idNumber: '851234567V',
       email: 'alexander@lifelink.org',
       name: 'Alexander Silva',
       password: hash,
@@ -18,6 +19,7 @@ async function fixAndVerify() {
     },
     create: {
       id: 'usr_donor_101',
+      idNumber: '851234567V',
       email: 'alexander@lifelink.org',
       name: 'Alexander Silva',
       phone: '+94 77 123 4567',
@@ -32,6 +34,7 @@ async function fixAndVerify() {
   const sarah = await prisma.user.upsert({
     where: { id: 'usr_recip_202' },
     update: {
+      idNumber: '921234567V',
       email: 'sarah.p@lifelink.org',
       name: 'Sarah Perera',
       password: hash,
@@ -40,6 +43,7 @@ async function fixAndVerify() {
     },
     create: {
       id: 'usr_recip_202',
+      idNumber: '921234567V',
       email: 'sarah.p@lifelink.org',
       name: 'Sarah Perera',
       phone: '+94 71 987 6543',

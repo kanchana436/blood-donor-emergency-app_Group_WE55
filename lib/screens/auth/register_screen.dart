@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/validators.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
 import '../../widgets/blood_group_selector.dart';
-import '../donor/donor_profile_setup_screen.dart';
+import '../donor/donor_main_navigation.dart';
 import '../recipient/recipient_main_navigation.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -23,11 +24,17 @@ class RegisterScreen extends StatefulWidget {
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
+  final _idNumberController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _cityController = TextEditingController();
+  final _addressController = TextEditingController();
+  final _weightController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  String _selectedBloodGroup = 'O+';
+
+  // Blood group must be explicitly selected by the user (no placeholder pre-selection)
+  String? _selectedBloodGroup;
 
   Color get _themeColor {
     return widget.role == 'donor'
@@ -46,39 +53,71 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   void dispose() {
     _nameController.dispose();
+    _idNumberController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
+    _cityController.dispose();
+    _addressController.dispose();
+    _weightController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
   }
 
   Future<void> _handleRegister() async {
+    // 1. Frontend Form Validation - Do not send request if validation fails
     if (!_formKey.currentState!.validate()) return;
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     authProvider.clearError();
 
+    final isDonor = widget.role == 'donor';
+    final weight = isDonor && _weightController.text.trim().isNotEmpty
+        ? double.tryParse(_weightController.text.trim())
+        : null;
+
     final success = await authProvider.register(
       name: _nameController.text.trim(),
-      email: _emailController.text.trim(),
+      idNumber: FormValidators.normalizeIdNumber(_idNumberController.text),
+      email: _emailController.text.trim().toLowerCase(),
       phone: _phoneController.text.trim(),
-      password: _passwordController.text.trim(),
+      password: _passwordController.text,
       role: widget.role,
+      bloodGroup: _selectedBloodGroup,
+      city: _cityController.text.trim(),
+      address: _addressController.text.trim(),
+      weightKg: weight,
     );
 
     if (!mounted) return;
 
     if (success) {
-      final user = authProvider.currentUser!;
-      if (widget.role == 'donor') {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) => DonorProfileSetupScreen(
-              userId: user.id,
-              initialBloodGroup: _selectedBloodGroup,
-            ),
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  isDonor
+                      ? 'Donor account registered successfully!'
+                      : 'Recipient account registered successfully!',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
           ),
+          backgroundColor: AppColors.success,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+
+      if (isDonor) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const DonorMainNavigation()),
         );
       } else {
         Navigator.of(context).pushReplacement(
@@ -157,19 +196,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
                 const SizedBox(height: 28),
+
+                // 1. Full Name
                 CustomTextField(
                   controller: _nameController,
                   label: 'Full Name',
                   hintText: 'e.g. Alexander Silva',
                   prefixIcon: Icons.person_outline_rounded,
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Please enter your full name';
-                    }
-                    return null;
-                  },
+                  validator: FormValidators.validateFullName,
                 ),
                 const SizedBox(height: 18),
+
+                // ID Number
+                CustomTextField(
+                  controller: _idNumberController,
+                  label: 'ID Number',
+                  hintText: 'e.g. 199012345678 or 901234567V',
+                  prefixIcon: Icons.badge_outlined,
+                  onChanged: (_) {
+                    if (authProvider.errorMessage != null) {
+                      authProvider.clearError();
+                    }
+                  },
+                  validator: FormValidators.validateIdNumber,
+                ),
+                const SizedBox(height: 18),
+
+                // 2. Email Address
                 CustomTextField(
                   controller: _emailController,
                   label: 'Email Address',
@@ -181,86 +234,141 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       authProvider.clearError();
                     }
                   },
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Please enter your email';
-                    }
-                    if (!value.contains('@') || !value.contains('.')) {
-                      return 'Please enter a valid email';
-                    }
-                    return null;
-                  },
+                  validator: FormValidators.validateEmail,
                 ),
                 const SizedBox(height: 18),
+
+                // 3. Phone Number
                 CustomTextField(
                   controller: _phoneController,
                   label: 'Phone Number',
                   hintText: 'e.g. +94 77 123 4567',
                   prefixIcon: Icons.phone_outlined,
                   keyboardType: TextInputType.phone,
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Please enter your phone number';
-                    }
-                    if (value.trim().length < 9) {
-                      return 'Please enter a valid phone number';
-                    }
-                    return null;
+                  validator: FormValidators.validatePhone,
+                ),
+                const SizedBox(height: 20),
+
+                // 4. Blood Group Selection
+                FormField<String>(
+                  validator: (val) => FormValidators.validateBloodGroup(_selectedBloodGroup),
+                  builder: (fieldState) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              isDonor ? 'Select Blood Group' : 'Patient Blood Group',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            const Text(
+                              ' *',
+                              style: TextStyle(
+                                color: AppColors.error,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        BloodGroupSelector(
+                          selectedGroup: _selectedBloodGroup,
+                          activeColor: _themeColor,
+                          onSelected: (group) {
+                            setState(() {
+                              _selectedBloodGroup = group;
+                            });
+                            fieldState.didChange(group);
+                          },
+                        ),
+                        if (fieldState.hasError) ...[
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              const Icon(Icons.error_outline, size: 14, color: AppColors.error),
+                              const SizedBox(width: 6),
+                              Text(
+                                fieldState.errorText!,
+                                style: const TextStyle(
+                                  color: AppColors.error,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    );
                   },
                 ),
-                if (isDonor) ...[
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Select Blood Group',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  BloodGroupSelector(
-                    selectedGroup: _selectedBloodGroup,
-                    activeColor: _themeColor,
-                    onSelected: (group) {
-                      setState(() {
-                        _selectedBloodGroup = group;
-                      });
-                    },
-                  ),
-                ],
+                const SizedBox(height: 20),
+
+                // 5. City
+                CustomTextField(
+                  controller: _cityController,
+                  label: 'City',
+                  hintText: 'e.g. Colombo',
+                  prefixIcon: Icons.location_city_outlined,
+                  validator: FormValidators.validateCity,
+                ),
                 const SizedBox(height: 18),
+
+                // 6. Living Address
+                CustomTextField(
+                  controller: _addressController,
+                  label: 'Living Address',
+                  hintText: 'e.g. No 45, Galle Road, Colombo 03',
+                  prefixIcon: Icons.home_outlined,
+                  validator: FormValidators.validateLivingAddress,
+                ),
+                const SizedBox(height: 18),
+
+                // 7. Body Weight (Required for donors)
+                if (isDonor) ...[
+                  CustomTextField(
+                    controller: _weightController,
+                    label: 'Body Weight (kg)',
+                    hintText: 'e.g. 65',
+                    prefixIcon: Icons.monitor_weight_outlined,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    suffixText: 'kg',
+                    validator: FormValidators.validateBodyWeight,
+                  ),
+                  const SizedBox(height: 18),
+                ],
+
+                // Password
                 CustomTextField(
                   controller: _passwordController,
                   label: 'Password',
                   hintText: 'Minimum 6 characters',
                   prefixIcon: Icons.lock_outline_rounded,
                   isPassword: true,
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Please enter a password';
-                    }
-                    if (value.length < 6) {
-                      return 'Password must be at least 6 characters';
-                    }
-                    return null;
-                  },
+                  validator: FormValidators.validatePassword,
                 ),
                 const SizedBox(height: 18),
+
+                // Confirm Password
                 CustomTextField(
                   controller: _confirmPasswordController,
                   label: 'Confirm Password',
                   hintText: 'Re-enter your password',
                   prefixIcon: Icons.lock_outline_rounded,
                   isPassword: true,
-                  validator: (value) {
-                    if (value != _passwordController.text) {
-                      return 'Passwords do not match';
-                    }
-                    return null;
-                  },
+                  validator: (value) => FormValidators.validateConfirmPassword(
+                    value,
+                    _passwordController.text,
+                  ),
                 ),
                 const SizedBox(height: 22),
+
+                // Backend Error Banner
                 if (authProvider.errorMessage != null) ...[
                   Container(
                     margin: const EdgeInsets.only(bottom: 18),
@@ -289,6 +397,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
                 ],
+
                 CustomButton(
                   text: 'Create Account',
                   customColor: _themeColor,

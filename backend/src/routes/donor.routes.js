@@ -2,15 +2,219 @@ const express = require('express');
 const router = express.Router();
 const { prisma, db } = require('../prisma');
 const { isCompatible } = require('../utils/matching');
+const {
+  validateBloodGroup,
+  validateCity,
+  validateLivingAddress,
+  validateBodyWeight,
+} = require('../utils/validation');
+
+// Helper function to search and filter donors by city, blood group, availability
+const handleSearchDonors = async (req, res) => {
+  try {
+    const { city, bloodGroup, isAvailable } = req.query;
+
+    // Validate and sanitize search inputs:
+    // Strip control characters, trim leading/trailing spaces
+    let cleanCity = '';
+    if (city !== undefined && city !== null) {
+      cleanCity = city.toString().replace(/[\x00-\x1F\x7F]/g, '').trim();
+    }
+
+    // Sanitize blood group
+    let cleanBloodGroup = '';
+    if (bloodGroup !== undefined && bloodGroup !== null && typeof bloodGroup === 'string') {
+      const trimmedBg = bloodGroup.trim().toUpperCase();
+      if (['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].includes(trimmedBg)) {
+        cleanBloodGroup = trimmedBg;
+      }
+    }
+
+    // Availability filter:
+    // "Do not display deactivated or unavailable donors."
+    // Default to true. Allow filtering if explicitly passed.
+    let targetAvailable = true;
+    if (isAvailable !== undefined && isAvailable !== null) {
+      const availStr = isAvailable.toString().trim().toLowerCase();
+      if (availStr === 'false' || availStr === 'unavailable') {
+        targetAvailable = false;
+      } else if (availStr === 'all') {
+        targetAvailable = undefined;
+      } else {
+        targetAvailable = true;
+      }
+    }
+
+    if (prisma) {
+      try {
+        const where = {
+          // Requirement: Never display deactivated donors
+          user: {
+            isActive: true,
+          },
+        };
+
+        // Requirement: Do not display unavailable donors unless requested
+        if (targetAvailable !== undefined) {
+          where.isAvailable = targetAvailable;
+        }
+
+        // Blood group filter
+        if (cleanBloodGroup) {
+          where.bloodGroup = cleanBloodGroup;
+        }
+
+        // Location / City filter: case-insensitive, ignores leading/trailing spaces
+        if (cleanCity) {
+          where.city = {
+            contains: cleanCity,
+            mode: 'insensitive',
+          };
+        }
+
+        const profiles = await prisma.donorProfile.findMany({
+          where,
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                phone: true,
+                role: true,
+                isActive: true,
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        // Safe mapping handling NULL or empty city values safely
+        const formatted = profiles.map(p => ({
+          id: p.id,
+          userId: p.userId,
+          name: p.user?.name || 'LifeLink Donor',
+          phone: p.user?.phone || '+94 77 123 4567',
+          email: p.user?.email || '',
+          bloodGroup: p.bloodGroup || 'O+',
+          isAvailable: p.isAvailable ?? true,
+          city: p.city || 'Unspecified',
+          address: p.address || '',
+          latitude: p.latitude ?? 6.9271,
+          longitude: p.longitude ?? 79.8612,
+          lastDonationDate: p.lastDonationDate,
+          totalDonations: p.totalDonations ?? 0,
+          livesSaved: p.livesSaved ?? 0,
+          eligibilityStatus: p.eligibilityStatus || 'Eligible',
+          weightKg: p.weightKg,
+          medicalConditions: p.medicalConditions,
+          createdAt: p.createdAt,
+          updatedAt: p.updatedAt,
+          user: p.user,
+        }));
+
+        return res.json({
+          success: true,
+          count: formatted.length,
+          data: formatted,
+        });
+      } catch (dbError) {
+        console.error('Prisma search donors error:', dbError.message);
+      }
+    }
+
+    // In-memory fallback
+    const filtered = db.donorProfiles.filter(p => {
+      const user = db.users.find(u => u.id === p.userId);
+      // Exclude deactivated
+      if (!user || user.isActive === false) return false;
+
+      // Exclude unavailable (if filtering for available)
+      if (targetAvailable !== undefined && p.isAvailable !== targetAvailable) return false;
+
+      // Filter by blood group
+      if (cleanBloodGroup && p.bloodGroup.toUpperCase() !== cleanBloodGroup) return false;
+
+      // Filter by city (case-insensitive substring, handles null/empty safely)
+      if (cleanCity) {
+        if (!p.city || typeof p.city !== 'string') return false;
+        if (!p.city.toLowerCase().includes(cleanCity.toLowerCase())) return false;
+      }
+
+      return true;
+    });
+
+    const fallbackFormatted = filtered.map(p => {
+      const user = db.users.find(u => u.id === p.userId);
+      return {
+        id: p.id,
+        userId: p.userId,
+        name: user?.name || 'LifeLink Donor',
+        phone: user?.phone || '+94 77 123 4567',
+        email: user?.email || '',
+        bloodGroup: p.bloodGroup || 'O+',
+        isAvailable: p.isAvailable ?? true,
+        city: p.city || 'Unspecified',
+        address: p.address || '',
+        latitude: p.latitude ?? 6.9271,
+        longitude: p.longitude ?? 79.8612,
+        lastDonationDate: p.lastDonationDate,
+        totalDonations: p.totalDonations ?? 0,
+        livesSaved: p.livesSaved ?? 0,
+        eligibilityStatus: p.eligibilityStatus || 'Eligible',
+        weightKg: p.weightKg,
+        medicalConditions: p.medicalConditions,
+        createdAt: p.createdAt || new Date().toISOString(),
+        user: user || null,
+      };
+    });
+
+    return res.json({
+      success: true,
+      count: fallbackFormatted.length,
+      data: fallbackFormatted,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/donors - Search / filter donors by location, blood group, availability
+router.get('/', handleSearchDonors);
+router.get('/search', handleSearchDonors);
 
 // POST /api/donors/profile
 router.post('/profile', async (req, res) => {
   try {
     const { userId, bloodGroup, city, address, isAvailable, latitude, longitude, weightKg } = req.body;
 
-    const parsedWeight = (weightKg !== undefined && weightKg !== null && weightKg !== '' && !isNaN(parseFloat(weightKg)))
-      ? parseFloat(weightKg)
-      : null;
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'User ID is required' });
+    }
+
+    const bloodValidation = validateBloodGroup(bloodGroup);
+    if (!bloodValidation.valid) {
+      return res.status(400).json({ success: false, message: bloodValidation.message });
+    }
+    const cleanBloodGroup = bloodValidation.value;
+
+    const cityValidation = validateCity(city);
+    if (!cityValidation.valid) {
+      return res.status(400).json({ success: false, message: cityValidation.message });
+    }
+    const cleanCity = cityValidation.value;
+
+    const addressValidation = validateLivingAddress(address);
+    if (!addressValidation.valid) {
+      return res.status(400).json({ success: false, message: addressValidation.message });
+    }
+    const cleanAddress = addressValidation.value;
+
+    const weightValidation = validateBodyWeight(weightKg);
+    if (!weightValidation.valid) {
+      return res.status(400).json({ success: false, message: weightValidation.message });
+    }
+    const cleanWeight = weightValidation.value;
 
     const boolAvailable = isAvailable !== undefined ? (isAvailable === true || isAvailable === 'true') : true;
 
@@ -22,6 +226,7 @@ router.post('/profile', async (req, res) => {
           userExists = await prisma.user.create({
             data: {
               id: userId,
+              idNumber: `ID-${userId.replace(/[^a-zA-Z0-9]/g, '').substring(0, 10).toUpperCase() || Date.now()}`,
               name: 'LifeLink Donor',
               email: `${userId.replace(/[^a-zA-Z0-9]/g, '')}@lifelink-app.org`,
               password: 'hashed_dummy_password',
@@ -34,23 +239,23 @@ router.post('/profile', async (req, res) => {
         const profile = await prisma.donorProfile.upsert({
           where: { userId },
           update: {
-            ...(bloodGroup ? { bloodGroup } : {}),
-            ...(city ? { city } : {}),
-            ...(address !== undefined ? { address } : {}),
+            bloodGroup: cleanBloodGroup,
+            city: cleanCity,
+            address: cleanAddress,
             ...(isAvailable !== undefined ? { isAvailable: boolAvailable } : {}),
             ...(latitude !== undefined && !isNaN(parseFloat(latitude)) ? { latitude: parseFloat(latitude) } : {}),
             ...(longitude !== undefined && !isNaN(parseFloat(longitude)) ? { longitude: parseFloat(longitude) } : {}),
-            ...(parsedWeight !== null ? { weightKg: parsedWeight } : {}),
+            weightKg: cleanWeight,
           },
           create: {
             userId,
-            bloodGroup: bloodGroup || 'O+',
-            city: city || 'Colombo',
-            address: address || '',
+            bloodGroup: cleanBloodGroup,
+            city: cleanCity,
+            address: cleanAddress,
             isAvailable: boolAvailable,
             latitude: latitude !== undefined && !isNaN(parseFloat(latitude)) ? parseFloat(latitude) : 6.9271,
             longitude: longitude !== undefined && !isNaN(parseFloat(longitude)) ? parseFloat(longitude) : 79.8612,
-            weightKg: parsedWeight,
+            weightKg: cleanWeight,
           },
         });
         return res.json({ success: true, data: profile });
@@ -65,24 +270,24 @@ router.post('/profile', async (req, res) => {
       profile = {
         id: `dp_${Date.now()}`,
         userId: userId || 'usr_donor_101',
-        bloodGroup: bloodGroup || 'O+',
-        city: city || 'Colombo',
-        address: address || '',
+        bloodGroup: cleanBloodGroup,
+        city: cleanCity,
+        address: cleanAddress,
         isAvailable: boolAvailable,
         latitude: latitude !== undefined && !isNaN(parseFloat(latitude)) ? parseFloat(latitude) : 6.9271,
         longitude: longitude !== undefined && !isNaN(parseFloat(longitude)) ? parseFloat(longitude) : 79.8612,
         totalDonations: 0,
         livesSaved: 0,
         eligibilityStatus: 'Eligible',
-        weightKg: parsedWeight,
+        weightKg: cleanWeight,
       };
       db.donorProfiles.push(profile);
     } else {
-      if (bloodGroup) profile.bloodGroup = bloodGroup;
-      if (city) profile.city = city;
-      if (address) profile.address = address;
+      profile.bloodGroup = cleanBloodGroup;
+      profile.city = cleanCity;
+      profile.address = cleanAddress;
       if (isAvailable !== undefined) profile.isAvailable = boolAvailable;
-      if (parsedWeight !== null) profile.weightKg = parsedWeight;
+      profile.weightKg = cleanWeight;
     }
 
     return res.json({ success: true, data: profile });
@@ -127,9 +332,37 @@ router.put('/profile', async (req, res) => {
   try {
     const { userId, bloodGroup, city, address, isAvailable, latitude, longitude, weightKg } = req.body;
 
-    const parsedWeight = (weightKg !== undefined && weightKg !== null && weightKg !== '' && !isNaN(parseFloat(weightKg)))
-      ? parseFloat(weightKg)
-      : null;
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'User ID is required' });
+    }
+
+    let cleanBloodGroup;
+    if (bloodGroup !== undefined) {
+      const bVal = validateBloodGroup(bloodGroup);
+      if (!bVal.valid) return res.status(400).json({ success: false, message: bVal.message });
+      cleanBloodGroup = bVal.value;
+    }
+
+    let cleanCity;
+    if (city !== undefined) {
+      const cVal = validateCity(city);
+      if (!cVal.valid) return res.status(400).json({ success: false, message: cVal.message });
+      cleanCity = cVal.value;
+    }
+
+    let cleanAddress;
+    if (address !== undefined) {
+      const aVal = validateLivingAddress(address);
+      if (!aVal.valid) return res.status(400).json({ success: false, message: aVal.message });
+      cleanAddress = aVal.value;
+    }
+
+    let cleanWeight = null;
+    if (weightKg !== undefined && weightKg !== null && weightKg !== '') {
+      const wVal = validateBodyWeight(weightKg);
+      if (!wVal.valid) return res.status(400).json({ success: false, message: wVal.message });
+      cleanWeight = wVal.value;
+    }
 
     const boolAvailable = isAvailable !== undefined ? (isAvailable === true || isAvailable === 'true') : undefined;
 
@@ -140,6 +373,7 @@ router.put('/profile', async (req, res) => {
           userExists = await prisma.user.create({
             data: {
               id: userId,
+              idNumber: `ID-${userId.replace(/[^a-zA-Z0-9]/g, '').substring(0, 10).toUpperCase() || Date.now()}`,
               name: 'LifeLink Donor',
               email: `${userId.replace(/[^a-zA-Z0-9]/g, '')}@lifelink-app.org`,
               password: 'hashed_dummy_password',
@@ -150,26 +384,26 @@ router.put('/profile', async (req, res) => {
         }
 
         const updateData = {};
-        if (bloodGroup) updateData.bloodGroup = bloodGroup;
-        if (city) updateData.city = city;
-        if (address !== undefined) updateData.address = address;
+        if (cleanBloodGroup) updateData.bloodGroup = cleanBloodGroup;
+        if (cleanCity) updateData.city = cleanCity;
+        if (cleanAddress !== undefined) updateData.address = cleanAddress;
         if (boolAvailable !== undefined) updateData.isAvailable = boolAvailable;
         if (latitude !== undefined && !isNaN(parseFloat(latitude))) updateData.latitude = parseFloat(latitude);
         if (longitude !== undefined && !isNaN(parseFloat(longitude))) updateData.longitude = parseFloat(longitude);
-        if (parsedWeight !== null) updateData.weightKg = parsedWeight;
+        if (cleanWeight !== null) updateData.weightKg = cleanWeight;
 
         const updated = await prisma.donorProfile.upsert({
           where: { userId },
           update: updateData,
           create: {
             userId,
-            bloodGroup: bloodGroup || 'O+',
-            city: city || 'Colombo',
-            address: address || '',
+            bloodGroup: cleanBloodGroup || 'O+',
+            city: cleanCity || 'Colombo',
+            address: cleanAddress || '',
             isAvailable: boolAvailable !== undefined ? boolAvailable : true,
             latitude: latitude !== undefined && !isNaN(parseFloat(latitude)) ? parseFloat(latitude) : 6.9271,
             longitude: longitude !== undefined && !isNaN(parseFloat(longitude)) ? parseFloat(longitude) : 79.8612,
-            weightKg: parsedWeight,
+            weightKg: cleanWeight,
           },
         });
         return res.json({ success: true, data: updated });
@@ -180,13 +414,13 @@ router.put('/profile', async (req, res) => {
 
     let profile = db.donorProfiles.find(p => p.userId === userId) || db.donorProfiles[0];
     if (profile) {
-      if (bloodGroup) profile.bloodGroup = bloodGroup;
-      if (city) profile.city = city;
-      if (address) profile.address = address;
+      if (cleanBloodGroup) profile.bloodGroup = cleanBloodGroup;
+      if (cleanCity) profile.city = cleanCity;
+      if (cleanAddress !== undefined) profile.address = cleanAddress;
       if (boolAvailable !== undefined) profile.isAvailable = boolAvailable;
       if (latitude && !isNaN(parseFloat(latitude))) profile.latitude = parseFloat(latitude);
       if (longitude && !isNaN(parseFloat(longitude))) profile.longitude = parseFloat(longitude);
-      if (parsedWeight !== null) profile.weightKg = parsedWeight;
+      if (cleanWeight !== null) profile.weightKg = cleanWeight;
 
       return res.json({ success: true, data: profile });
     }
