@@ -179,6 +179,7 @@ class ApiService {
       } else {
         return ApiResponse(
           success: false,
+          data: decoded,
           message: decoded['message'] ?? 'Request failed with code ${response.statusCode}',
           statusCode: response.statusCode,
         );

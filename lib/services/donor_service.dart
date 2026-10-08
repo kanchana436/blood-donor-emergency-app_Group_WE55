@@ -13,6 +13,42 @@ class DonorService {
   final MockDataStore _dataStore = MockDataStore();
   final Uuid _uuid = const Uuid();
 
+  // Search / Filter Donors by Location, Blood Group, Availability
+  Future<List<DonorProfileModel>> searchDonors({
+    String? city,
+    String? bloodGroup,
+    bool? isAvailable = true,
+  }) async {
+    final queryParams = <String, String>{};
+    if (city != null && city.trim().isNotEmpty) {
+      queryParams['city'] = city.trim();
+    }
+    if (bloodGroup != null && bloodGroup != 'All') {
+      queryParams['bloodGroup'] = bloodGroup;
+    }
+    if (isAvailable != null) {
+      queryParams['isAvailable'] = isAvailable.toString();
+    }
+
+    final queryString = queryParams.isNotEmpty
+        ? '?${queryParams.entries.map((e) => '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}').join('&')}'
+        : '';
+
+    final response = await _apiService.get('${ApiConstants.searchDonors}$queryString');
+    if (response.success && response.data != null && response.data is List) {
+      return (response.data as List)
+          .map((item) => DonorProfileModel.fromJson(item))
+          .toList();
+    }
+
+    // Mock fallback when offline or during test suites
+    return _dataStore.searchDonors(
+      city: city,
+      bloodGroup: bloodGroup,
+      isAvailable: isAvailable,
+    );
+  }
+
   // CRUD #5: Create Donor Profile
   Future<DonorProfileModel> createDonorProfile({
     required String userId,

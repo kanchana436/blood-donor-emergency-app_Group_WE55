@@ -13,6 +13,8 @@ class DonorProfileModel {
   final String eligibilityStatus; // 'Eligible', 'Deferred', 'Temporary Ineligible'
   final double? weightKg;
   final String? medicalConditions;
+  final String? userName;
+  final String? userPhone;
 
   DonorProfileModel({
     required this.id,
@@ -29,9 +31,18 @@ class DonorProfileModel {
     this.eligibilityStatus = 'Eligible',
     this.weightKg,
     this.medicalConditions,
+    this.userName,
+    this.userPhone,
   });
 
   factory DonorProfileModel.fromJson(Map<String, dynamic> json) {
+    String? name = json['name'] ?? json['userName'];
+    String? phone = json['phone'] ?? json['userPhone'];
+    if (name == null && json['user'] != null && json['user'] is Map) {
+      name = json['user']['name'];
+      phone = json['user']['phone'];
+    }
+
     return DonorProfileModel(
       id: json['id'] ?? '',
       userId: json['userId'] ?? '',
@@ -49,6 +60,8 @@ class DonorProfileModel {
       eligibilityStatus: json['eligibilityStatus'] ?? 'Eligible',
       weightKg: (json['weightKg'] as num?)?.toDouble(),
       medicalConditions: json['medicalConditions'],
+      userName: name,
+      userPhone: phone,
     );
   }
 
@@ -68,6 +81,8 @@ class DonorProfileModel {
       'eligibilityStatus': eligibilityStatus,
       'weightKg': weightKg,
       'medicalConditions': medicalConditions,
+      'name': userName,
+      'phone': userPhone,
     };
   }
 
@@ -86,6 +101,8 @@ class DonorProfileModel {
     String? eligibilityStatus,
     double? weightKg,
     String? medicalConditions,
+    String? userName,
+    String? userPhone,
   }) {
     return DonorProfileModel(
       id: id ?? this.id,
@@ -102,6 +119,8 @@ class DonorProfileModel {
       eligibilityStatus: eligibilityStatus ?? this.eligibilityStatus,
       weightKg: weightKg ?? this.weightKg,
       medicalConditions: medicalConditions ?? this.medicalConditions,
+      userName: userName ?? this.userName,
+      userPhone: userPhone ?? this.userPhone,
     );
   }
 }

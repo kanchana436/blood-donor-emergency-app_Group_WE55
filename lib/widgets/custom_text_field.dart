@@ -14,6 +14,7 @@ class CustomTextField extends StatefulWidget {
   final bool readOnly;
   final VoidCallback? onTap;
   final void Function(String)? onChanged;
+  final String? suffixText;
   final String? initialValue;
 
   const CustomTextField({
@@ -23,6 +24,7 @@ class CustomTextField extends StatefulWidget {
     this.hintText,
     this.prefixIcon,
     this.suffixIcon,
+    this.suffixText,
     this.isPassword = false,
     this.keyboardType = TextInputType.text,
     this.maxLines = 1,
@@ -81,6 +83,12 @@ class _CustomTextFieldState extends State<CustomTextField> {
             prefixIcon: widget.prefixIcon != null
                 ? Icon(widget.prefixIcon, color: AppColors.textSecondary, size: 20)
                 : null,
+            suffixText: widget.suffixText,
+            suffixStyle: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textSecondary,
+            ),
             suffixIcon: widget.isPassword
                 ? IconButton(
                     icon: Icon(

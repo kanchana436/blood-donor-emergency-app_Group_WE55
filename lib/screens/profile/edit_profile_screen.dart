@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/validators.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
@@ -15,6 +16,7 @@ class EditProfileScreen extends StatefulWidget {
 class _EditProfileScreenState extends State<EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
+  late TextEditingController _idNumberController;
   late TextEditingController _phoneController;
   late TextEditingController _emailController;
 
@@ -23,6 +25,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.initState();
     final auth = Provider.of<AuthProvider>(context, listen: false);
     _nameController = TextEditingController(text: auth.currentUser?.name ?? '');
+    _idNumberController = TextEditingController(text: auth.currentUser?.idNumber ?? '');
     _phoneController = TextEditingController(text: auth.currentUser?.phone ?? '');
     _emailController = TextEditingController(text: auth.currentUser?.email ?? '');
   }
@@ -30,6 +33,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   void dispose() {
     _nameController.dispose();
+    _idNumberController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
     super.dispose();
@@ -41,8 +45,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final success = await auth.updateProfile(
       name: _nameController.text.trim(),
+      idNumber: FormValidators.normalizeIdNumber(_idNumberController.text),
       phone: _phoneController.text.trim(),
-      email: _emailController.text.trim(),
+      email: _emailController.text.trim().toLowerCase(),
     );
 
     if (!mounted) return;
@@ -92,7 +97,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   controller: _nameController,
                   label: 'Full Name',
                   prefixIcon: Icons.person_outline_rounded,
-                  validator: (v) => v!.trim().isEmpty ? 'Enter full name' : null,
+                  validator: FormValidators.validateFullName,
+                ),
+                const SizedBox(height: 16),
+                CustomTextField(
+                  controller: _idNumberController,
+                  label: 'ID Number',
+                  hintText: 'e.g. 199012345678 or 901234567V',
+                  prefixIcon: Icons.badge_outlined,
+                  validator: FormValidators.validateIdNumber,
                 ),
                 const SizedBox(height: 16),
                 CustomTextField(
@@ -100,7 +113,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   label: 'Email Address',
                   prefixIcon: Icons.email_outlined,
                   keyboardType: TextInputType.emailAddress,
-                  validator: (v) => v!.trim().isEmpty ? 'Enter email' : null,
+                  validator: FormValidators.validateEmail,
                 ),
                 const SizedBox(height: 16),
                 CustomTextField(
@@ -108,7 +121,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   label: 'Phone Number',
                   prefixIcon: Icons.phone_outlined,
                   keyboardType: TextInputType.phone,
-                  validator: (v) => v!.trim().isEmpty ? 'Enter phone number' : null,
+                  validator: FormValidators.validatePhone,
                 ),
                 const SizedBox(height: 32),
                 CustomButton(

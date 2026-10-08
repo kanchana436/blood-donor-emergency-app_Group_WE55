@@ -219,6 +219,7 @@ router.post('/', async (req, res) => {
             // Auto-create a recipient user
             const newUser = await prisma.user.create({
               data: {
+                idNumber: `ID-RECIP-${Date.now().toString().slice(-8)}`,
                 name: requesterName || 'Default Requester',
                 email: `requester_${Date.now()}@lifelink.org`,
                 phone: contactPhone || '+94 71 987 6543',

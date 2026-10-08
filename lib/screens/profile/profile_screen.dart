@@ -8,7 +8,9 @@ import '../donor/donor_main_navigation.dart';
 import '../donor/donor_profile_setup_screen.dart';
 import '../recipient/recipient_main_navigation.dart';
 import '../auth/role_selection_screen.dart';
+import '../auth/login_screen.dart';
 import 'edit_profile_screen.dart';
+import 'change_password_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -32,37 +34,93 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _showDeactivateDialog() {
     final auth = Provider.of<AuthProvider>(context, listen: false);
+    final userRole = auth.activeRole;
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Deactivate Account?'),
-        content: const Text(
-          'Your profile, matching history, and notifications will be deactivated. You can reactivate anytime by signing back in.',
-          style: TextStyle(fontSize: 14),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 28),
+            SizedBox(width: 10),
+            Text(
+              'Deactivate Account',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Are you sure you want to deactivate your LifeLink account?',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+            ),
+            SizedBox(height: 12),
+            Text(
+              '• Your account will be immediately deactivated and you will be signed out.\n'
+              '• You will not be able to log back in without contacting support.\n'
+              '• Your donation records and blood requests are preserved for medical integrity.\n'
+              '• Your data will NOT be permanently deleted from the database.',
+              style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.45),
+            ),
+          ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Keep Account'),
+            child: const Text('Keep Account', style: TextStyle(color: AppColors.textSecondary)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.error,
               foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             ),
             onPressed: () async {
               Navigator.of(ctx).pop();
               final success = await auth.deactivateAccount();
-              if (mounted && success) {
+              if (!mounted) return;
+
+              if (success) {
                 Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const RoleSelectionScreen()),
+                  MaterialPageRoute(builder: (_) => LoginScreen(role: userRole)),
                   (route) => false,
+                );
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Row(
+                      children: [
+                        Icon(Icons.info_outline_rounded, color: Colors.white, size: 20),
+                        SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Your account has been deactivated.',
+                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
+                    ),
+                    backgroundColor: AppColors.textPrimary,
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    duration: const Duration(seconds: 5),
+                  ),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(auth.errorMessage ?? 'Failed to deactivate account.'),
+                    backgroundColor: AppColors.error,
+                    behavior: SnackBarBehavior.floating,
+                  ),
                 );
               }
             },
-            child: const Text('Deactivate'),
+            child: const Text('Yes, Deactivate', style: TextStyle(fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -170,21 +228,52 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                             ),
                             const SizedBox(height: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: themeColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                isDonor ? 'ACTIVE DONOR' : 'RECIPIENT / CAREGIVER',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w800,
-                                  color: themeColor,
-                                  letterSpacing: 0.8,
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: themeColor.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    isDonor ? 'ACTIVE DONOR' : 'RECIPIENT / CAREGIVER',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                      color: themeColor,
+                                      letterSpacing: 0.8,
+                                    ),
+                                  ),
                                 ),
-                              ),
+                                if (user != null && user.idNumber.isNotEmpty)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.background,
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: AppColors.border),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.badge_outlined, size: 11, color: AppColors.textSecondary),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          user.idNumber,
+                                          style: const TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w700,
+                                            color: AppColors.textPrimary,
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                              ],
                             ),
                           ],
                         ),
@@ -288,7 +377,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _buildSettingTile(
                     icon: Icons.person_outline_rounded,
                     title: 'Edit Personal Profile',
-                    subtitle: 'Name, phone number, contact details',
+                    subtitle: 'Name, ID number, phone, contact details',
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(builder: (_) => const EditProfileScreen()),
@@ -318,6 +407,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       },
                     ),
                   ],
+
+                  const Divider(height: 1, color: AppColors.border),
+                  _buildSettingTile(
+                    icon: Icons.lock_outline_rounded,
+                    title: 'Change Password',
+                    subtitle: 'Update your account password',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const ChangePasswordScreen()),
+                      );
+                    },
+                  ),
 
                   const Divider(height: 1, color: AppColors.border),
                   _buildSettingTile(
