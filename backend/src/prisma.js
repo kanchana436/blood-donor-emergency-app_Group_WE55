@@ -41,6 +41,7 @@ const db = {
       phone: '+94 77 123 4567',
       role: 'donor',
       isActive: true,
+      isEmailVerified: true,
       createdAt: new Date().toISOString(),
     },
     {
@@ -52,9 +53,12 @@ const db = {
       phone: '+94 71 987 6543',
       role: 'recipient',
       isActive: true,
+      isEmailVerified: true,
       createdAt: new Date().toISOString(),
     },
   ],
+  emailVerificationOtps: [],
+  passwordResetOtps: [],
   donorProfiles: [
     {
       id: 'dp_101',

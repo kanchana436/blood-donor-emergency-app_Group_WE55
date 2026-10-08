@@ -10,6 +10,7 @@ import '../donor/donor_profile_setup_screen.dart';
 import '../recipient/recipient_main_navigation.dart';
 import 'register_screen.dart';
 import 'forgot_password_screen.dart';
+import 'email_verification_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final String role; // 'donor' | 'recipient' | 'manager'
@@ -94,7 +95,10 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     } else {
+      final isUnverified = authProvider.requiresEmailVerification;
+      final unverifiedEmail = authProvider.unverifiedEmail ?? _emailController.text.trim();
       final errorMsg = authProvider.errorMessage ?? 'Invalid email or password.';
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
@@ -113,10 +117,26 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ],
           ),
+          action: isUnverified
+              ? SnackBarAction(
+                  label: 'Verify Now',
+                  textColor: Colors.amberAccent,
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => EmailVerificationScreen(
+                          email: unverifiedEmail,
+                          role: widget.role,
+                        ),
+                      ),
+                    );
+                  },
+                )
+              : null,
           backgroundColor: AppColors.error,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          duration: const Duration(seconds: 4),
+          duration: const Duration(seconds: 5),
         ),
       );
     }
@@ -251,21 +271,60 @@ class _LoginScreenState extends State<LoginScreen> {
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: const Color(0xFFF87171)),
                     ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 20),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            authProvider.errorMessage!,
-                            style: const TextStyle(
-                              color: Color(0xFFB91C1C),
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 20),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                authProvider.errorMessage!,
+                                style: const TextStyle(
+                                  color: Color(0xFFB91C1C),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (authProvider.requiresEmailVerification) ...[
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton.icon(
+                              onPressed: () {
+                                final unverifiedEmail =
+                                    authProvider.unverifiedEmail ?? _emailController.text.trim();
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => EmailVerificationScreen(
+                                      email: unverifiedEmail,
+                                      role: widget.role,
+                                    ),
+                                  ),
+                                );
+                              },
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                backgroundColor: const Color(0xFFDC2626).withOpacity(0.12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                              ),
+                              icon: const Icon(Icons.mark_email_read_rounded, size: 16, color: Color(0xFF991B1B)),
+                              label: const Text(
+                                'Verify Email Now →',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF991B1B),
+                                ),
+                              ),
                             ),
                           ),
-                        ),
+                        ],
                       ],
                     ),
                   ),

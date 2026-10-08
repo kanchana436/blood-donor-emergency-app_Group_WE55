@@ -12,6 +12,12 @@ class ApiConstants {
   static const String userProfile = '/auth/me';
   static const String updateProfile = '/auth/profile';
   static const String deactivateAccount = '/auth/deactivate';
+  static const String changePassword = '/auth/change-password';
+  static const String forgotPassword = '/auth/forgot-password';
+  static const String verifyOtp = '/auth/verify-otp';
+  static const String resetPassword = '/auth/reset-password';
+  static const String verifyEmailOtp = '/auth/verify-email-otp';
+  static const String resendEmailOtp = '/auth/resend-verification-otp';
 
   // Donor endpoints
   static const String searchDonors = '/donors';

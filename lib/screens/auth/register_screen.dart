@@ -6,8 +6,7 @@ import '../../providers/auth_provider.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
 import '../../widgets/blood_group_selector.dart';
-import '../donor/donor_main_navigation.dart';
-import '../recipient/recipient_main_navigation.dart';
+import 'email_verification_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   final String role; // 'donor' | 'recipient' | 'manager'
@@ -96,13 +95,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
         SnackBar(
           content: Row(
             children: [
-              const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+              const Icon(Icons.mark_email_read_rounded, color: Colors.white, size: 20),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  isDonor
-                      ? 'Donor account registered successfully!'
-                      : 'Recipient account registered successfully!',
+                  'Registration initiated! Verification code sent to ${_emailController.text.trim()}.',
                   style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
                 ),
               ),
@@ -111,19 +108,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
           backgroundColor: AppColors.success,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          duration: const Duration(seconds: 3),
+          duration: const Duration(seconds: 4),
         ),
       );
 
-      if (isDonor) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const DonorMainNavigation()),
-        );
-      } else {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const RecipientMainNavigation()),
-        );
-      }
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => EmailVerificationScreen(
+            email: _emailController.text.trim().toLowerCase(),
+            role: widget.role,
+          ),
+        ),
+      );
     } else {
       final errorMsg = authProvider.errorMessage ?? 'Registration failed.';
       ScaffoldMessenger.of(context).showSnackBar(

@@ -10,6 +10,7 @@ import '../recipient/recipient_main_navigation.dart';
 import '../auth/role_selection_screen.dart';
 import '../auth/login_screen.dart';
 import 'edit_profile_screen.dart';
+import 'change_password_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -406,6 +407,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       },
                     ),
                   ],
+
+                  const Divider(height: 1, color: AppColors.border),
+                  _buildSettingTile(
+                    icon: Icons.lock_outline_rounded,
+                    title: 'Change Password',
+                    subtitle: 'Update your account password',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const ChangePasswordScreen()),
+                      );
+                    },
+                  ),
 
                   const Divider(height: 1, color: AppColors.border),
                   _buildSettingTile(

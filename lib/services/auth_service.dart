@@ -5,6 +5,16 @@ import '../core/constants/api_constants.dart';
 import 'api_service.dart';
 import 'mock_data_store.dart';
 
+class UnverifiedEmailException implements Exception {
+  final String message;
+  final String email;
+
+  UnverifiedEmailException(this.message, this.email);
+
+  @override
+  String toString() => message;
+}
+
 class AuthService {
   final ApiService _apiService = ApiService();
   final MockDataStore _dataStore = MockDataStore();
@@ -46,7 +56,7 @@ class AuthService {
         final profile = DonorProfileModel.fromJson(response.data['profile']);
         _dataStore.donorProfiles[user.id] = profile;
       }
-      if (response.data['token'] != null) {
+      if (response.data['token'] != null && user.isEmailVerified) {
         await _apiService.setAuthToken(response.data['token']);
       }
       return user;
@@ -80,6 +90,7 @@ class AuthService {
       phone: phone.trim(),
       role: role,
       isActive: true,
+      isEmailVerified: false,
       createdAt: DateTime.now(),
     );
     _dataStore.users.add(newUser);
@@ -94,7 +105,6 @@ class AuthService {
         isAvailable: true,
       );
     }
-    await _apiService.setAuthToken('mock_jwt_token_${newUser.id}');
     return newUser;
   }
 
@@ -118,6 +128,13 @@ class AuthService {
       return user;
     }
 
+    if (response.data != null && response.data is Map && response.data['isUnverified'] == true) {
+      throw UnverifiedEmailException(
+        response.message ?? 'Your email address is not verified. Please verify your email before logging in.',
+        (response.data['email'] as String?) ?? normalizedEmail,
+      );
+    }
+
     // If server rejected login (e.g. 401 Invalid email or password), bubble up the error!
     if (response.message != null && !response.message!.contains('Could not connect')) {
       throw Exception(response.message);
@@ -125,6 +142,68 @@ class AuthService {
 
     // Network connection failed
     throw Exception('Unable to connect to the server. Please check your network connection.');
+  }
+
+  // Email Verification: Verify OTP
+  Future<UserModel> verifyEmailOtp({
+    required String email,
+    required String otp,
+  }) async {
+    final normalizedEmail = email.trim().toLowerCase();
+    final cleanOtp = otp.trim();
+
+    final response = await _apiService.post(ApiConstants.verifyEmailOtp, {
+      'email': normalizedEmail,
+      'otp': cleanOtp,
+    });
+
+    if (response.success && response.data != null) {
+      final user = UserModel.fromJson(response.data['user'] ?? response.data);
+      if (response.data['profile'] != null) {
+        final profile = DonorProfileModel.fromJson(response.data['profile']);
+        _dataStore.donorProfiles[user.id] = profile;
+      }
+      if (response.data['token'] != null) {
+        await _apiService.setAuthToken(response.data['token']);
+      }
+      return user;
+    }
+
+    if (response.message != null && !response.message!.contains('Could not connect')) {
+      throw Exception(response.message);
+    }
+
+    // Mock fallback if offline/disconnected
+    if (cleanOtp.length != 6) {
+      throw Exception('Verification code must be exactly 6 digits.');
+    }
+    final existingUser = _dataStore.users.firstWhere(
+      (u) => u.email.toLowerCase() == normalizedEmail,
+      orElse: () => throw Exception('User account not found.'),
+    );
+    final verifiedUser = existingUser.copyWith(isEmailVerified: true);
+    final idx = _dataStore.users.indexWhere((u) => u.id == existingUser.id);
+    if (idx != -1) _dataStore.users[idx] = verifiedUser;
+    await _apiService.setAuthToken('mock_jwt_token_${verifiedUser.id}');
+    return verifiedUser;
+  }
+
+  // Email Verification: Resend OTP
+  Future<bool> resendEmailOtp({required String email}) async {
+    final normalizedEmail = email.trim().toLowerCase();
+    final response = await _apiService.post(ApiConstants.resendEmailOtp, {
+      'email': normalizedEmail,
+    });
+
+    if (response.success) {
+      return true;
+    }
+
+    if (response.message != null && response.message!.isNotEmpty) {
+      throw Exception(response.message);
+    }
+
+    throw Exception('Failed to resend verification code. Please try again.');
   }
 
   // CRUD #2: Read User Profile
@@ -224,7 +303,118 @@ class AuthService {
     return false;
   }
 
+  // Change Password
+  Future<bool> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    final response = await _apiService.post(ApiConstants.changePassword, {
+      'currentPassword': currentPassword,
+      'newPassword': newPassword,
+      'confirmPassword': confirmPassword,
+    });
+
+    if (response.success) {
+      if (response.data != null && response.data['token'] != null) {
+        await _apiService.setAuthToken(response.data['token']);
+      }
+      return true;
+    }
+
+    if (response.message != null && !response.message!.contains('Could not connect')) {
+      throw Exception(response.message);
+    }
+
+    // Fallback if backend server unreachable
+    if (_apiService.authToken == null) {
+      throw Exception('Authentication token required');
+    }
+    if (newPassword.length < 6) {
+      throw Exception('New password must be at least 6 characters');
+    }
+    if (newPassword != confirmPassword) {
+      throw Exception('New password and confirmation do not match');
+    }
+    if (newPassword == currentPassword) {
+      throw Exception('New password must be different from current password');
+    }
+    return true;
+  }
+
+  // Forgot Password: Send OTP
+  Future<bool> forgotPassword(String email) async {
+    final normalizedEmail = email.trim().toLowerCase();
+    final response = await _apiService.post(ApiConstants.forgotPassword, {
+      'email': normalizedEmail,
+    });
+
+    if (response.success) {
+      return true;
+    }
+
+    if (response.message != null && response.message!.isNotEmpty) {
+      throw Exception(response.message);
+    }
+
+    throw Exception('Failed to send verification code. Please check email configuration or try again.');
+  }
+
+  // Verify OTP: returns resetToken
+  Future<String> verifyOtp({required String email, required String otp}) async {
+    final normalizedEmail = email.trim().toLowerCase();
+    final response = await _apiService.post(ApiConstants.verifyOtp, {
+      'email': normalizedEmail,
+      'otp': otp.trim(),
+    });
+
+    if (response.success && response.data != null && response.data['resetToken'] != null) {
+      return response.data['resetToken'] as String;
+    }
+
+    if (response.message != null && !response.message!.contains('Could not connect')) {
+      throw Exception(response.message);
+    }
+
+    // Mock fallback if disconnected
+    if (otp.trim().length != 6) {
+      throw Exception('Verification code must be exactly 6 digits.');
+    }
+    return 'mock_reset_token_${DateTime.now().millisecondsSinceEpoch}';
+  }
+
+  // Reset Password using resetToken
+  Future<bool> resetPassword({
+    required String resetToken,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    final response = await _apiService.post(ApiConstants.resetPassword, {
+      'resetToken': resetToken,
+      'newPassword': newPassword,
+      'confirmPassword': confirmPassword,
+    });
+
+    if (response.success) {
+      return true;
+    }
+
+    if (response.message != null && !response.message!.contains('Could not connect')) {
+      throw Exception(response.message);
+    }
+
+    // Mock fallback
+    if (newPassword.length < 6) {
+      throw Exception('New password must be at least 6 characters');
+    }
+    if (newPassword != confirmPassword) {
+      throw Exception('New password and confirmation do not match');
+    }
+    return true;
+  }
+
   Future<void> logout() async {
     await _apiService.setAuthToken(null);
   }
 }
+

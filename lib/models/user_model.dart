@@ -6,6 +6,7 @@ class UserModel {
   final String phone;
   final String role; // 'donor', 'recipient', 'manager'
   final bool isActive;
+  final bool isEmailVerified;
   final String? fcmToken;
   final DateTime createdAt;
 
@@ -17,6 +18,7 @@ class UserModel {
     required this.phone,
     required this.role,
     this.isActive = true,
+    this.isEmailVerified = false,
     this.fcmToken,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
@@ -30,6 +32,7 @@ class UserModel {
       phone: json['phone'] ?? '',
       role: json['role'] ?? 'donor',
       isActive: json['isActive'] ?? (json['status'] != 'DEACTIVATED'),
+      isEmailVerified: json['isEmailVerified'] == true || json['is_email_verified'] == true,
       fcmToken: json['fcmToken'],
       createdAt: json['createdAt'] != null
           ? DateTime.tryParse(json['createdAt']) ?? DateTime.now()
@@ -50,6 +53,7 @@ class UserModel {
       'phone': phone,
       'role': role,
       'isActive': isActive,
+      'isEmailVerified': isEmailVerified,
       'fcmToken': fcmToken,
       'createdAt': createdAt.toIso8601String(),
     };
@@ -63,6 +67,7 @@ class UserModel {
     String? phone,
     String? role,
     bool? isActive,
+    bool? isEmailVerified,
     String? fcmToken,
     DateTime? createdAt,
   }) {
@@ -74,6 +79,7 @@ class UserModel {
       phone: phone ?? this.phone,
       role: role ?? this.role,
       isActive: isActive ?? this.isActive,
+      isEmailVerified: isEmailVerified ?? this.isEmailVerified,
       fcmToken: fcmToken ?? this.fcmToken,
       createdAt: createdAt ?? this.createdAt,
     );

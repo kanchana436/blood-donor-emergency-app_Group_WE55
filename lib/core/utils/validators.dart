@@ -186,6 +186,28 @@ class FormValidators {
     return null;
   }
 
+  /// Current Password Validation
+  static String? validateCurrentPassword(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Please enter your current password';
+    }
+    return null;
+  }
+
+  /// New Password Validation
+  static String? validateNewPassword(String? value, String currentPassword) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Please enter a new password';
+    }
+    if (value.length < 6) {
+      return 'Password must be at least 6 characters';
+    }
+    if (value == currentPassword) {
+      return 'New password must be different from current password';
+    }
+    return null;
+  }
+
   /// Confirm Password Validation
   static String? validateConfirmPassword(String? value, String password) {
     if (value == null || value.isEmpty) {
@@ -197,3 +219,4 @@ class FormValidators {
     return null;
   }
 }
+

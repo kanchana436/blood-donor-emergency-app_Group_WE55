@@ -219,6 +219,25 @@ function validateIdNumber(idNumber) {
   return { valid: true, value: upper };
 }
 
+/**
+ * Password Validation
+ * - Required
+ * - Minimum 6 characters
+ */
+function validatePassword(password, fieldName = 'Password') {
+  if (password === undefined || password === null || typeof password !== 'string') {
+    return { valid: false, message: `${fieldName} is required` };
+  }
+  const trimmed = password.trim();
+  if (trimmed.length === 0) {
+    return { valid: false, message: `${fieldName} is required` };
+  }
+  if (password.length < 6) {
+    return { valid: false, message: `${fieldName} must be at least 6 characters` };
+  }
+  return { valid: true, value: password };
+}
+
 module.exports = {
   VALID_BLOOD_GROUPS,
   validateFullName,
@@ -229,4 +248,6 @@ module.exports = {
   validateLivingAddress,
   validateBodyWeight,
   validateIdNumber,
+  validatePassword,
 };
+

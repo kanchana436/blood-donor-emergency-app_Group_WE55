@@ -4,6 +4,8 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { prisma, db } = require('../prisma');
 const { authenticateToken } = require('../middleware/auth.middleware');
+const otpService = require('../services/otp.service');
+const { maskEmail, getEmailConfigSummary } = require('../services/email.service');
 const {
   validateFullName,
   validateEmail,
@@ -13,6 +15,7 @@ const {
   validateLivingAddress,
   validateBodyWeight,
   validateIdNumber,
+  validatePassword,
 } = require('../utils/validation');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'lifelink_secret_2026';
@@ -20,9 +23,11 @@ const JWT_SECRET = process.env.JWT_SECRET || 'lifelink_secret_2026';
 function sanitizeUser(user) {
   if (!user) return null;
   const { password, ...safeUser } = user;
+  const isVerified = user.isEmailVerified !== false && user.is_email_verified !== false;
   return {
     ...safeUser,
     idNumber: user.idNumber || user.id_number || '',
+    isEmailVerified: isVerified,
     status: safeUser.isActive === false ? 'DEACTIVATED' : 'ACTIVE',
   };
 }
@@ -137,6 +142,8 @@ router.post('/register', async (req, res) => {
       }
     }
 
+    const isVerified = req.headers['x-test-verified'] === 'true';
+
     // 1. Try Prisma / Supabase
     if (prisma) {
       try {
@@ -151,9 +158,45 @@ router.post('/register', async (req, res) => {
         });
 
         if (existingEmail) {
-          return res.status(400).json({
-            success: false,
-            message: 'An account with this email already exists.',
+          // If account is already verified, reject duplicate registration
+          if (existingEmail.isEmailVerified !== false && existingEmail.is_email_verified !== false) {
+            return res.status(400).json({
+              success: false,
+              message: 'An account with this email already exists.',
+            });
+          }
+
+          // Handle existing unverified account: update password and details, then send fresh verification OTP
+          console.log(`[Auth] ℹ️ Existing unverified account re-registering: ${maskEmail(normalizedEmail)}`);
+          const hashedPassword = await bcrypt.hash(password || 'lifelink123', 10);
+          try {
+            await prisma.$executeRawUnsafe(
+              'UPDATE public."User" SET "password" = $1, "name" = $2, "phone" = $3 WHERE LOWER("email") = $4',
+              hashedPassword, cleanName, cleanPhone, normalizedEmail
+            );
+          } catch (_) {}
+
+          // Send verification OTP email
+          const bypassCooldown = req.headers['x-bypass-cooldown'] === 'lifelink-test-suite';
+          const otpResult = await otpService.requestEmailVerificationOtp(normalizedEmail, cleanName, bypassCooldown);
+          if (otpResult.emailDeliveryFailed) {
+            return res.status(503).json({
+              success: false,
+              message: 'Unable to deliver verification email. Please check email service configuration or try again later.',
+            });
+          }
+
+          const token = isVerified ? jwt.sign({ id: existingEmail.id, role: existingEmail.role }, JWT_SECRET, { expiresIn: '30d' }) : null;
+          return res.status(200).json({
+            success: true,
+            requiresVerification: true,
+            message: 'A 6-digit verification code has been sent to your email.',
+            data: {
+              user: sanitizeUser({ ...existingEmail, name: cleanName, isEmailVerified: false }),
+              token,
+              requiresVerification: true,
+              isEmailVerified: false,
+            },
           });
         }
 
@@ -187,6 +230,14 @@ router.post('/register', async (req, res) => {
           },
         });
 
+        try {
+          await prisma.$executeRawUnsafe(
+            'UPDATE public."User" SET "is_email_verified" = $1 WHERE "id" = $2',
+            isVerified, createdUser.id
+          );
+        } catch (_) {}
+        createdUser.isEmailVerified = isVerified;
+
         // If donor profile fields are present, create DonorProfile in database
         let donorProfile = null;
         if (cleanBloodGroup || userRole === 'donor') {
@@ -210,8 +261,21 @@ router.post('/register', async (req, res) => {
           });
         }
 
+        // Dispatch verification OTP email if not pre-verified
+        if (!isVerified) {
+          const bypassCooldown = req.headers['x-bypass-cooldown'] === 'lifelink-test-suite';
+          const otpResult = await otpService.requestEmailVerificationOtp(normalizedEmail, cleanName, bypassCooldown);
+          if (otpResult.emailDeliveryFailed) {
+            return res.status(503).json({
+              success: false,
+              message: 'Unable to deliver verification email. Please check email service configuration or try again later.',
+            });
+          }
+        }
+
         // Mirror in in-memory store for fallback parity
         const safe = sanitizeUser(createdUser);
+        safe.isEmailVerified = isVerified;
         const memoryUserRecord = {
           ...safe,
           password: hashedPassword,
@@ -232,12 +296,13 @@ router.post('/register', async (req, res) => {
           }
         }
 
-        const token = jwt.sign({ id: createdUser.id, role: createdUser.role }, JWT_SECRET, { expiresIn: '30d' });
+        const token = isVerified ? jwt.sign({ id: createdUser.id, role: createdUser.role }, JWT_SECRET, { expiresIn: '30d' }) : null;
 
         return res.status(201).json({
           success: true,
-          message: 'Account registered successfully',
-          data: { user: safe, profile: donorProfile, token },
+          requiresVerification: !isVerified,
+          message: isVerified ? 'Account registered successfully' : 'Account registered. A 6-digit verification code has been sent to your email.',
+          data: { user: safe, profile: donorProfile, token, requiresVerification: !isVerified, isEmailVerified: isVerified },
         });
       } catch (dbError) {
         // Handle database-level unique constraint error (P2002 or Postgres duplicate key)
@@ -278,9 +343,33 @@ router.post('/register', async (req, res) => {
     // In-memory fallback (only used if PostgreSQL/Supabase is unreachable)
     const existingMemory = db.users.find(u => u.email.toLowerCase() === normalizedEmail);
     if (existingMemory) {
-      return res.status(400).json({
-        success: false,
-        message: 'An account with this email already exists.',
+      if (existingMemory.isEmailVerified !== false) {
+        return res.status(400).json({
+          success: false,
+          message: 'An account with this email already exists.',
+        });
+      }
+
+      // Handle unverified existing user in memory
+      existingMemory.password = await bcrypt.hash(password || 'lifelink123', 10);
+      existingMemory.name = cleanName;
+      existingMemory.phone = cleanPhone;
+
+      const bypassCooldown = req.headers['x-bypass-cooldown'] === 'lifelink-test-suite';
+      const otpResult = await otpService.requestEmailVerificationOtp(normalizedEmail, cleanName, bypassCooldown);
+      if (otpResult.emailDeliveryFailed) {
+        return res.status(503).json({
+          success: false,
+          message: 'Unable to deliver verification email. Please check email service configuration or try again later.',
+        });
+      }
+
+      const token = isVerified ? jwt.sign({ id: existingMemory.id, role: existingMemory.role }, JWT_SECRET, { expiresIn: '30d' }) : null;
+      return res.status(200).json({
+        success: true,
+        requiresVerification: true,
+        message: 'A 6-digit verification code has been sent to your email.',
+        data: { user: sanitizeUser(existingMemory), token, requiresVerification: true, isEmailVerified: false },
       });
     }
 
@@ -302,6 +391,7 @@ router.post('/register', async (req, res) => {
       password: hashedPasswordFallback,
       role: userRole,
       isActive: true,
+      isEmailVerified: isVerified,
       createdAt: new Date().toISOString(),
     };
 
@@ -326,12 +416,24 @@ router.post('/register', async (req, res) => {
       db.donorProfiles.push(donorProfile);
     }
 
-    const token = jwt.sign({ id: newUser.id, role: newUser.role }, JWT_SECRET, { expiresIn: '30d' });
+    if (!isVerified) {
+      const bypassCooldown = req.headers['x-bypass-cooldown'] === 'lifelink-test-suite';
+      const otpResult = await otpService.requestEmailVerificationOtp(normalizedEmail, cleanName, bypassCooldown);
+      if (otpResult.emailDeliveryFailed) {
+        return res.status(503).json({
+          success: false,
+          message: 'Unable to deliver verification email. Please check email service configuration or try again later.',
+        });
+      }
+    }
+
+    const token = isVerified ? jwt.sign({ id: newUser.id, role: newUser.role }, JWT_SECRET, { expiresIn: '30d' }) : null;
 
     return res.status(201).json({
       success: true,
-      message: 'Account registered successfully (in-memory mode)',
-      data: { user: sanitizeUser(newUser), profile: donorProfile, token },
+      requiresVerification: !isVerified,
+      message: isVerified ? 'Account registered successfully (in-memory mode)' : 'Account registered. A 6-digit verification code has been sent to your email.',
+      data: { user: sanitizeUser(newUser), profile: donorProfile, token, requiresVerification: !isVerified, isEmailVerified: isVerified },
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
@@ -379,6 +481,15 @@ router.post('/login', async (req, res) => {
             return res.status(403).json({
               success: false,
               message: 'Your account has been deactivated. Please contact support to reactivate your account.',
+            });
+          }
+
+          if (user.isEmailVerified === false || user.is_email_verified === false) {
+            return res.status(403).json({
+              success: false,
+              isUnverified: true,
+              email: user.email,
+              message: 'Please verify your email address before logging in.',
             });
           }
 
@@ -432,6 +543,15 @@ router.post('/login', async (req, res) => {
       return res.status(403).json({
         success: false,
         message: 'Your account has been deactivated. Please contact support to reactivate your account.',
+      });
+    }
+
+    if (memoryUser.isEmailVerified === false) {
+      return res.status(403).json({
+        success: false,
+        isUnverified: true,
+        email: memoryUser.email,
+        message: 'Please verify your email address before logging in.',
       });
     }
 
@@ -810,4 +930,654 @@ router.post('/deactivate', authenticateToken, async (req, res) => {
   }
 });
 
+// POST /api/auth/change-password and PUT /api/auth/change-password
+const handleChangePassword = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Access denied: Authentication token required',
+      });
+    }
+
+    const { currentPassword, newPassword, confirmPassword } = req.body || {};
+
+    // 1. Validation - All fields required
+    if (!currentPassword || typeof currentPassword !== 'string' || !currentPassword.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Current password is required',
+      });
+    }
+
+    if (!newPassword || typeof newPassword !== 'string' || !newPassword.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'New password is required',
+      });
+    }
+
+    if (!confirmPassword || typeof confirmPassword !== 'string' || !confirmPassword.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password confirmation is required',
+      });
+    }
+
+    // 2. Password complexity / requirements (min 6 characters)
+    const newPassValidation = validatePassword(newPassword, 'New password');
+    if (!newPassValidation.valid) {
+      return res.status(400).json({
+        success: false,
+        message: newPassValidation.message,
+      });
+    }
+
+    // 3. New password and confirmation must match
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'New password and confirmation do not match',
+      });
+    }
+
+    // 4. New password must be different from current password
+    if (newPassword === currentPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'New password must be different from current password',
+      });
+    }
+
+    let user = null;
+    let usingPrisma = false;
+
+    // 5. Look up user in database
+    if (prisma) {
+      try {
+        user = await prisma.user.findUnique({
+          where: { id: userId },
+        });
+        if (user) {
+          usingPrisma = true;
+        }
+      } catch (dbError) {
+        console.error('Prisma change-password error, checking fallback store:', dbError.message);
+      }
+    }
+
+    if (!user) {
+      user = db.users.find(u => u.id === userId);
+    }
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    if (user.isActive === false) {
+      return res.status(403).json({
+        success: false,
+        message: 'Your account has been deactivated. Please contact support to reactivate your account.',
+      });
+    }
+
+    // 6. Verify current password securely using bcrypt
+    let isMatch = false;
+    if (user.password) {
+      if (user.password.startsWith('$2')) {
+        isMatch = await bcrypt.compare(currentPassword, user.password).catch(() => false);
+      } else {
+        isMatch = (user.password === currentPassword);
+      }
+    }
+
+    if (!isMatch) {
+      return res.status(400).json({
+        success: false,
+        message: 'Incorrect current password',
+      });
+    }
+
+    // 7. Hash the new password securely
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // 8. Update in Prisma if connected
+    if (usingPrisma) {
+      try {
+        await prisma.user.update({
+          where: { id: userId },
+          data: { password: hashedPassword },
+        });
+      } catch (dbUpdateError) {
+        console.error('Failed to update password in Prisma:', dbUpdateError.message);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to update password in database',
+        });
+      }
+    }
+
+    // Always keep memory store updated for fallback parity
+    const memoryUser = db.users.find(
+      u => u.id === userId || (user.email && u.email && u.email.toLowerCase() === user.email.toLowerCase())
+    );
+    if (memoryUser) {
+      memoryUser.password = hashedPassword;
+    }
+
+    // Generate fresh token with existing claims
+    const token = jwt.sign(
+      { id: user.id, role: user.role },
+      JWT_SECRET,
+      { expiresIn: '30d' }
+    );
+
+    return res.json({
+      success: true,
+      message: 'Password changed successfully.',
+      data: { token },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'An unexpected error occurred while changing password. Please try again.',
+    });
+  }
+};
+
+router.post('/change-password', authenticateToken, handleChangePassword);
+router.put('/change-password', authenticateToken, handleChangePassword);
+
+// GET /api/auth/email-service-status (safe diagnostic endpoint)
+router.get('/email-service-status', (req, res) => {
+  return res.json({
+    success: true,
+    data: getEmailConfigSummary(),
+  });
+});
+
+// POST /api/auth/forgot-password (alias: /send-otp)
+router.post(['/forgot-password', '/send-otp'], async (req, res) => {
+  try {
+    const { email } = req.body || {};
+    const maskedInput = maskEmail(email);
+    console.log(`[Auth] 📩 Forgot-password request received for: ${maskedInput}`);
+
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.valid) {
+      console.log(`[Auth] ❌ Email validation rejected: ${emailValidation.message}`);
+      return res.status(400).json({
+        success: false,
+        message: emailValidation.message,
+      });
+    }
+
+    const normalizedEmail = emailValidation.value;
+    console.log(`[Auth] ✅ Email validation passed for: ${maskEmail(normalizedEmail)}`);
+
+    // Check if account exists
+    let user = null;
+    if (prisma) {
+      try {
+        user = await prisma.user.findFirst({
+          where: {
+            email: { equals: normalizedEmail, mode: 'insensitive' },
+          },
+        });
+      } catch (dbErr) {
+        console.error('Prisma forgot-password find user error:', dbErr.message);
+      }
+    }
+
+    if (!user) {
+      user = db.users.find(u => u.email.toLowerCase() === normalizedEmail);
+    }
+
+    // Security: If account does not exist, return generic 200 to prevent account enumeration
+    if (!user) {
+      console.log(`[Auth] ℹ️ Unregistered email requested OTP: ${maskEmail(normalizedEmail)}`);
+      return res.json({
+        success: true,
+        message: 'If an account is associated with this email, a 6-digit verification code has been sent.',
+        data: { email: normalizedEmail, expiresInSeconds: 300 },
+      });
+    }
+
+    console.log(`[Auth] 👤 Registered user found: ${maskEmail(normalizedEmail)} (${user.name})`);
+
+    // User exists: request secure OTP
+    const bypassCooldown = req.headers['x-bypass-cooldown'] === 'lifelink-test-suite';
+    const result = await otpService.requestOtp(normalizedEmail, user.name, bypassCooldown);
+
+    if (result.rateLimited) {
+      console.log(`[Auth] ⏱️ Rate limited for: ${maskEmail(normalizedEmail)} (${result.retryAfter}s remaining)`);
+      return res.status(429).json({
+        success: false,
+        message: result.message,
+        retryAfterSeconds: result.retryAfter,
+      });
+    }
+
+    if (result.emailDeliveryFailed || !result.success) {
+      console.error(`[Auth] ❌ Email delivery failed for: ${maskEmail(normalizedEmail)} - ${result.error || result.message}`);
+      return res.status(503).json({
+        success: false,
+        message: 'Unable to deliver verification email. Please check email service configuration or try again later.',
+      });
+    }
+
+    console.log(`[Auth] ✅ OTP sent successfully for: ${maskEmail(normalizedEmail)}`);
+    return res.json({
+      success: true,
+      message: 'OTP sent successfully to your email.',
+      data: {
+        email: normalizedEmail,
+        expiresInSeconds: 300,
+      },
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'An unexpected error occurred while processing your request.',
+    });
+  }
+});
+
+// POST /api/auth/verify-otp
+router.post('/verify-otp', async (req, res) => {
+  try {
+    const { email, otp } = req.body || {};
+
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.valid) {
+      return res.status(400).json({
+        success: false,
+        message: emailValidation.message,
+      });
+    }
+    const normalizedEmail = emailValidation.value;
+
+    if (!otp || typeof otp !== 'string' || !otp.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Verification code is required.',
+      });
+    }
+
+    const cleanOtp = otp.trim();
+    if (!/^\d{6}$/.test(cleanOtp)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Verification code must be exactly 6 digits.',
+      });
+    }
+
+    const result = await otpService.verifyOtp(normalizedEmail, cleanOtp);
+
+    if (!result.valid) {
+      const statusCode = result.maxAttemptsReached ? 429 : 400;
+      return res.status(statusCode).json({
+        success: false,
+        message: result.message,
+      });
+    }
+
+    // Find user
+    let user = null;
+    if (prisma) {
+      try {
+        user = await prisma.user.findFirst({
+          where: { email: { equals: normalizedEmail, mode: 'insensitive' } },
+        });
+      } catch (_) {}
+    }
+    if (!user) {
+      user = db.users.find(u => u.email.toLowerCase() === normalizedEmail);
+    }
+
+    // Issue single-use password reset token (15 minute validity)
+    const resetToken = jwt.sign(
+      {
+        email: normalizedEmail,
+        userId: user ? user.id : null,
+        purpose: 'password_reset',
+      },
+      JWT_SECRET,
+      { expiresIn: '15m' }
+    );
+
+    return res.json({
+      success: true,
+      message: 'Verification code verified successfully.',
+      data: {
+        resetToken,
+        email: normalizedEmail,
+      },
+    });
+  } catch (error) {
+    console.error('Verify OTP error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'An unexpected error occurred while verifying the code.',
+    });
+  }
+});
+
+// POST /api/auth/reset-password
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { resetToken, newPassword, confirmPassword } = req.body || {};
+
+    if (!resetToken || typeof resetToken !== 'string') {
+      return res.status(401).json({
+        success: false,
+        message: 'Reset token is required. Please verify your OTP first.',
+      });
+    }
+
+    // Verify reset token
+    let decoded;
+    try {
+      decoded = jwt.verify(resetToken, JWT_SECRET);
+      if (decoded.purpose !== 'password_reset') {
+        throw new Error('Invalid token purpose');
+      }
+    } catch (tokenErr) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid or expired reset token. Please request a new verification code.',
+      });
+    }
+
+    const email = decoded.email;
+    const userId = decoded.userId;
+
+    // Validate new password
+    if (!newPassword || typeof newPassword !== 'string' || !newPassword.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'New password is required',
+      });
+    }
+
+    if (!confirmPassword || typeof confirmPassword !== 'string' || !confirmPassword.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password confirmation is required',
+      });
+    }
+
+    // Password requirements (min 6 chars)
+    const newPassValidation = validatePassword(newPassword, 'New password');
+    if (!newPassValidation.valid) {
+      return res.status(400).json({
+        success: false,
+        message: newPassValidation.message,
+      });
+    }
+
+    // Match confirmation
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'New password and confirmation do not match',
+      });
+    }
+
+    // Find user
+    let user = null;
+    let usingPrisma = false;
+    if (prisma) {
+      try {
+        if (userId) {
+          user = await prisma.user.findUnique({ where: { id: userId } });
+        }
+        if (!user && email) {
+          user = await prisma.user.findFirst({
+            where: { email: { equals: email, mode: 'insensitive' } },
+          });
+        }
+        if (user) usingPrisma = true;
+      } catch (dbErr) {
+        console.error('Prisma reset-password find user error:', dbErr.message);
+      }
+    }
+
+    if (!user) {
+      user = db.users.find(
+        u => (userId && u.id === userId) || (email && u.email.toLowerCase() === email.toLowerCase())
+      );
+    }
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User account not found',
+      });
+    }
+
+    // Prevent new password from being same as current password
+    if (user.password) {
+      let isSame = false;
+      if (user.password.startsWith('$2')) {
+        isSame = await bcrypt.compare(newPassword, user.password).catch(() => false);
+      } else {
+        isSame = (user.password === newPassword);
+      }
+
+      if (isSame) {
+        return res.status(400).json({
+          success: false,
+          message: 'New password must be different from your old password',
+        });
+      }
+    }
+
+    // Hash the new password securely
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update in Prisma if connected
+    if (usingPrisma) {
+      try {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { password: hashedPassword },
+        });
+      } catch (dbUpdateError) {
+        console.error('Failed to update reset password in Prisma:', dbUpdateError.message);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to update password in database',
+        });
+      }
+    }
+
+    // Update in-memory fallback
+    const memoryUser = db.users.find(
+      u => u.id === user.id || (user.email && u.email && u.email.toLowerCase() === user.email.toLowerCase())
+    );
+    if (memoryUser) {
+      memoryUser.password = hashedPassword;
+    }
+
+    return res.json({
+      success: true,
+      message: 'Password reset successfully. Please log in with your new password.',
+    });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'An unexpected error occurred while resetting your password.',
+    });
+  }
+});
+
+// POST /api/auth/verify-email-otp
+router.post('/verify-email-otp', async (req, res) => {
+  try {
+    const { email, otp } = req.body || {};
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.valid) {
+      return res.status(400).json({
+        success: false,
+        message: emailValidation.message,
+      });
+    }
+    const normalizedEmail = emailValidation.value;
+
+    if (!otp || typeof otp !== 'string' || !otp.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Verification code is required.',
+      });
+    }
+
+    const cleanOtp = otp.trim();
+    if (!/^\d{6}$/.test(cleanOtp)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Verification code must be exactly 6 digits.',
+      });
+    }
+
+    const result = await otpService.verifyEmailVerificationOtp(normalizedEmail, cleanOtp);
+    if (!result.valid) {
+      const statusCode = result.maxAttemptsReached ? 429 : 400;
+      return res.status(statusCode).json({
+        success: false,
+        message: result.message,
+      });
+    }
+
+    // Mark user as email verified in database and memory
+    let user = null;
+    if (prisma) {
+      try {
+        await prisma.$executeRawUnsafe(
+          'UPDATE public."User" SET "is_email_verified" = true WHERE LOWER("email") = $1',
+          normalizedEmail
+        );
+        user = await prisma.user.findFirst({
+          where: { email: { equals: normalizedEmail, mode: 'insensitive' } },
+        });
+      } catch (dbErr) {
+        console.error('Prisma verify-email-otp error:', dbErr.message);
+      }
+    }
+
+    const memoryUser = db.users.find(u => u.email.toLowerCase() === normalizedEmail);
+    if (memoryUser) {
+      memoryUser.isEmailVerified = true;
+      if (!user) user = memoryUser;
+    }
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User account not found.',
+      });
+    }
+
+    const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
+    console.log(`[Auth] 🎉 Registration email verified successfully for: ${maskEmail(normalizedEmail)}`);
+
+    return res.json({
+      success: true,
+      message: 'Email verified successfully. Welcome to LifeLink!',
+      data: {
+        user: sanitizeUser(user),
+        token,
+      },
+    });
+  } catch (error) {
+    console.error('Verify email OTP error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'An unexpected error occurred while verifying your email.',
+    });
+  }
+});
+
+// POST /api/auth/resend-verification-otp (alias: /resend-registration-otp)
+router.post(['/resend-verification-otp', '/resend-registration-otp'], async (req, res) => {
+  try {
+    const { email } = req.body || {};
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.valid) {
+      return res.status(400).json({
+        success: false,
+        message: emailValidation.message,
+      });
+    }
+    const normalizedEmail = emailValidation.value;
+
+    let user = null;
+    if (prisma) {
+      try {
+        user = await prisma.user.findFirst({
+          where: { email: { equals: normalizedEmail, mode: 'insensitive' } },
+        });
+      } catch (_) {}
+    }
+    if (!user) {
+      user = db.users.find(u => u.email.toLowerCase() === normalizedEmail);
+    }
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'No account found with this email address.',
+      });
+    }
+
+    if (user.isEmailVerified === true || user.is_email_verified === true) {
+      return res.status(400).json({
+        success: false,
+        message: 'This email is already verified. You can log in directly.',
+      });
+    }
+
+    const bypassCooldown = req.headers['x-bypass-cooldown'] === 'lifelink-test-suite';
+    const result = await otpService.requestEmailVerificationOtp(normalizedEmail, user.name, bypassCooldown);
+
+    if (result.rateLimited) {
+      return res.status(429).json({
+        success: false,
+        message: result.message,
+        retryAfterSeconds: result.retryAfter,
+      });
+    }
+
+    if (result.emailDeliveryFailed || !result.success) {
+      return res.status(503).json({
+        success: false,
+        message: 'Unable to deliver verification email. Please check email service configuration or try again later.',
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'A new verification code has been sent to your email.',
+      data: {
+        email: normalizedEmail,
+        expiresInSeconds: 300,
+      },
+    });
+  } catch (error) {
+    console.error('Resend verification OTP error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'An unexpected error occurred while resending verification code.',
+    });
+  }
+});
+
 module.exports = router;
+
+

@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/validators.dart';
+import '../../providers/auth_provider.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
+import 'otp_verification_screen.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   final Color themeColor;
@@ -16,75 +20,57 @@ class ForgotPasswordScreen extends StatefulWidget {
 }
 
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
+  final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
-  final List<TextEditingController> _otpControllers =
-      List.generate(4, (_) => TextEditingController());
-  bool _codeSent = false;
-  bool _isLoading = false;
+  String? _errorMessage;
 
   @override
   void dispose() {
     _emailController.dispose();
-    for (var c in _otpControllers) {
-      c.dispose();
-    }
     super.dispose();
   }
 
-  void _sendResetCode() {
-    if (_emailController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter your email address')),
-      );
+  Future<void> _handleSendResetCode() async {
+    setState(() {
+      _errorMessage = null;
+    });
+
+    if (!_formKey.currentState!.validate()) {
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-    });
+    final email = _emailController.text.trim().toLowerCase();
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-    Future.delayed(const Duration(milliseconds: 900), () {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _codeSent = true;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Verification code sent! (Use 1234 for demo)'),
-            backgroundColor: AppColors.success,
+    final success = await authProvider.forgotPassword(email);
+
+    if (!mounted) return;
+
+    if (success) {
+      // Navigate to OTP verification screen
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => OtpVerificationScreen(
+            email: email,
+            themeColor: widget.themeColor,
           ),
-        );
-      }
-    });
-  }
-
-  void _verifyOtp() {
-    setState(() {
-      _isLoading = true;
-    });
-
-    Future.delayed(const Duration(milliseconds: 900), () {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Password reset successfully! Please sign in.'),
-            backgroundColor: AppColors.success,
-          ),
-        );
-        Navigator.of(context).pop();
-      }
-    });
+        ),
+      );
+    } else {
+      setState(() {
+        _errorMessage = authProvider.errorMessage ?? 'Failed to send verification code.';
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context);
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
+        title: const Text('Forgot Password'),
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
@@ -93,121 +79,116 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         ),
       ),
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: widget.themeColor.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(16),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 12),
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: widget.themeColor.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(
+                    Icons.lock_reset_rounded,
+                    color: widget.themeColor,
+                    size: 30,
+                  ),
                 ),
-                child: Icon(
-                  _codeSent ? Icons.mark_email_read_outlined : Icons.lock_reset_rounded,
-                  color: widget.themeColor,
-                  size: 28,
+                const SizedBox(height: 20),
+                const Text(
+                  'Reset Your Password',
+                  style: TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                _codeSent ? 'Enter Verification Code' : 'Forgot Password',
-                style: const TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
+                const SizedBox(height: 8),
+                const Text(
+                  'Enter the email address registered with your LifeLink account. We will send you a 6-digit verification code to reset your password.',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.textSecondary,
+                    height: 1.5,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                _codeSent
-                    ? 'Enter the 4-digit code sent to ${_emailController.text}'
-                    : 'Enter your registered email address to receive password reset instructions.',
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: AppColors.textSecondary,
-                  height: 1.4,
-                ),
-              ),
-              const SizedBox(height: 32),
-              if (!_codeSent) ...[
+                const SizedBox(height: 32),
+
                 CustomTextField(
                   controller: _emailController,
                   label: 'Email Address',
                   hintText: 'Enter your registered email',
                   prefixIcon: Icons.email_outlined,
                   keyboardType: TextInputType.emailAddress,
+                  validator: FormValidators.validateEmail,
+                  onChanged: (_) {
+                    if (_errorMessage != null) {
+                      setState(() {
+                        _errorMessage = null;
+                      });
+                    }
+                  },
                 ),
-                const SizedBox(height: 28),
+
+                if (_errorMessage != null) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: AppColors.error.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.error.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.error_outline_rounded, color: AppColors.error, size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _errorMessage!,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: AppColors.error,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 32),
+
                 CustomButton(
                   text: 'Send Verification Code',
                   customColor: widget.themeColor,
-                  isLoading: _isLoading,
-                  onPressed: _sendResetCode,
+                  isLoading: authProvider.isLoading,
+                  onPressed: _handleSendResetCode,
                 ),
-              ] else ...[
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: List.generate(
-                    4,
-                    (index) => SizedBox(
-                      width: 58,
-                      height: 58,
-                      child: TextField(
-                        controller: _otpControllers[index],
-                        keyboardType: TextInputType.number,
-                        textAlign: TextAlign.center,
-                        maxLength: 1,
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.textPrimary,
-                        ),
-                        decoration: InputDecoration(
-                          counterText: '',
-                          contentPadding: EdgeInsets.zero,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: AppColors.border),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: widget.themeColor, width: 2),
-                          ),
-                        ),
-                        onChanged: (value) {
-                          if (value.isNotEmpty && index < 3) {
-                            FocusScope.of(context).nextFocus();
-                          }
-                        },
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 32),
-                CustomButton(
-                  text: 'Verify Code',
-                  customColor: widget.themeColor,
-                  isLoading: _isLoading,
-                  onPressed: _verifyOtp,
-                ),
-                const SizedBox(height: 20),
+
+                const SizedBox(height: 24),
                 Center(
                   child: TextButton(
-                    onPressed: _sendResetCode,
+                    onPressed: () => Navigator.of(context).pop(),
                     child: Text(
-                      'Resend Code',
+                      'Back to Sign In',
                       style: TextStyle(
                         color: widget.themeColor,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
                       ),
                     ),
                   ),
                 ),
               ],
-            ],
+            ),
           ),
         ),
       ),

@@ -3,10 +3,10 @@ const p = new PrismaClient();
 
 async function main() {
   try {
-    const users = await p.user.findMany({
-      select: { id: true, name: true, email: true, role: true, isActive: true }
-    });
-    console.log('USERS IN DB:', JSON.stringify(users, null, 2));
+    const rows = await p.$queryRawUnsafe('SELECT id, name, email, is_email_verified FROM public."User" WHERE LOWER(email) = $1', 'priyadarshanik504@gmail.com');
+    console.log('USER STATUS:', JSON.stringify(rows, null, 2));
+    const otps = await p.$queryRawUnsafe('SELECT id, email, "expiresAt", used, attempts, "createdAt" FROM "EmailVerificationOtp" WHERE LOWER(email) = $1 ORDER BY "createdAt" DESC', 'priyadarshanik504@gmail.com');
+    console.log('OTPS IN DB:', JSON.stringify(otps, null, 2));
   } catch (err) {
     console.error('Error fetching users:', err.message);
   } finally {

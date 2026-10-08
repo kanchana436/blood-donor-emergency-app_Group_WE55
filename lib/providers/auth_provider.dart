@@ -13,10 +13,15 @@ class AuthProvider with ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
 
+  String? _unverifiedEmail;
+  bool _requiresEmailVerification = false;
+
   UserModel? get currentUser => _currentUser;
   String get activeRole => _activeRole;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+  String? get unverifiedEmail => _unverifiedEmail;
+  bool get requiresEmailVerification => _requiresEmailVerification;
   bool get isAuthenticated => _currentUser != null;
   bool get isDonor => _activeRole == 'donor';
 
@@ -112,9 +117,17 @@ class AuthProvider with ChangeNotifier {
         address: address,
         weightKg: weightKg,
       );
-      _currentUser = user;
       _activeRole = role;
-      await _saveSession(user, role);
+      if (user.isEmailVerified) {
+        _currentUser = user;
+        _requiresEmailVerification = false;
+        _unverifiedEmail = null;
+        await _saveSession(user, role);
+      } else {
+        _currentUser = null;
+        _requiresEmailVerification = true;
+        _unverifiedEmail = user.email;
+      }
       _isLoading = false;
       notifyListeners();
       return true;
@@ -142,6 +155,50 @@ class AuthProvider with ChangeNotifier {
       );
       _currentUser = user;
       _activeRole = user.role;
+      _requiresEmailVerification = false;
+      _unverifiedEmail = null;
+      await _saveSession(user, user.role);
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } on UnverifiedEmailException catch (e) {
+      _isLoading = false;
+      _requiresEmailVerification = true;
+      _unverifiedEmail = e.email;
+      _errorMessage = e.message;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _isLoading = false;
+      _requiresEmailVerification = false;
+      _unverifiedEmail = null;
+      final msg = e.toString().replaceFirst('Exception: ', '').trim();
+      _errorMessage = msg.isNotEmpty ? msg : 'Login failed.';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  void setUnverifiedEmail(String email) {
+    _unverifiedEmail = email;
+    _requiresEmailVerification = true;
+    notifyListeners();
+  }
+
+  Future<bool> verifyEmailOtp({
+    required String email,
+    required String otp,
+  }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final user = await _authService.verifyEmailOtp(email: email, otp: otp);
+      _currentUser = user;
+      _activeRole = user.role;
+      _requiresEmailVerification = false;
+      _unverifiedEmail = null;
       await _saveSession(user, user.role);
       _isLoading = false;
       notifyListeners();
@@ -149,7 +206,26 @@ class AuthProvider with ChangeNotifier {
     } catch (e) {
       _isLoading = false;
       final msg = e.toString().replaceFirst('Exception: ', '').trim();
-      _errorMessage = msg.isNotEmpty ? msg : 'Login failed.';
+      _errorMessage = msg.isNotEmpty ? msg : 'Email verification failed.';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> resendEmailOtp({required String email}) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final success = await _authService.resendEmailOtp(email: email);
+      _isLoading = false;
+      notifyListeners();
+      return success;
+    } catch (e) {
+      _isLoading = false;
+      final msg = e.toString().replaceFirst('Exception: ', '').trim();
+      _errorMessage = msg.isNotEmpty ? msg : 'Failed to resend verification code.';
       notifyListeners();
       return false;
     }
@@ -212,6 +288,98 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  Future<bool> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final success = await _authService.changePassword(
+        currentPassword: currentPassword,
+        newPassword: newPassword,
+        confirmPassword: confirmPassword,
+      );
+      _isLoading = false;
+      notifyListeners();
+      return success;
+    } catch (e) {
+      _isLoading = false;
+      final msg = e.toString().replaceFirst('Exception: ', '').trim();
+      _errorMessage = msg.isNotEmpty ? msg : 'Failed to change password.';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> forgotPassword(String email) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final success = await _authService.forgotPassword(email);
+      _isLoading = false;
+      notifyListeners();
+      return success;
+    } catch (e) {
+      _isLoading = false;
+      final msg = e.toString().replaceFirst('Exception: ', '').trim();
+      _errorMessage = msg.isNotEmpty ? msg : 'Failed to send verification code.';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<String?> verifyOtp({required String email, required String otp}) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final token = await _authService.verifyOtp(email: email, otp: otp);
+      _isLoading = false;
+      notifyListeners();
+      return token;
+    } catch (e) {
+      _isLoading = false;
+      final msg = e.toString().replaceFirst('Exception: ', '').trim();
+      _errorMessage = msg.isNotEmpty ? msg : 'Verification failed.';
+      notifyListeners();
+      return null;
+    }
+  }
+
+  Future<bool> resetPassword({
+    required String resetToken,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final success = await _authService.resetPassword(
+        resetToken: resetToken,
+        newPassword: newPassword,
+        confirmPassword: confirmPassword,
+      );
+      _isLoading = false;
+      notifyListeners();
+      return success;
+    } catch (e) {
+      _isLoading = false;
+      final msg = e.toString().replaceFirst('Exception: ', '').trim();
+      _errorMessage = msg.isNotEmpty ? msg : 'Failed to reset password.';
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<void> logout() async {
     await _authService.logout();
     await _clearSession();
@@ -219,3 +387,4 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
   }
 }
+
