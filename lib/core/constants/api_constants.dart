@@ -1,7 +1,7 @@
 class ApiConstants {
   // Default Node.js + Express backend URL
   // Can be adjusted from settings screen in the app
-  static String baseUrl = 'http://localhost:5001/api';
+  static String baseUrl = 'http://10.0.2.2:5001/api';
 
   // For Android emulator testing, localhost is 10.0.2.2
   static const String androidEmulatorBaseUrl = 'http://10.0.2.2:5001/api';
@@ -27,6 +27,9 @@ class ApiConstants {
   static const String donorResponses = '/donors/responses';
   static const String respondToRequest = '/donors/requests/respond';
   static const String donationRecords = '/donations';
+
+  // Blood stock endpoints
+  static const String bloodStock = '/blood-stock';
 
   // Blood Request endpoints
   static const String requests = '/requests';

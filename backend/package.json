@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
+    "test:blood-stock": "node src/scripts/test-blood-stock-crud.js",
     "test:db": "node src/scripts/test-db-connection.js",
     "verify:supabase": "node src/scripts/verify-supabase-crud.js",
     "prisma:generate": "prisma generate",
