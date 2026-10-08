@@ -6,13 +6,16 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
+    "test:verification-queue": "node src/scripts/test-verification-queue-crud.js",
+    "test:emergency-contacts": "node src/scripts/test-emergency-contact-crud.js",
     "test:blood-stock": "node src/scripts/test-blood-stock-crud.js",
     "test:db": "node src/scripts/test-db-connection.js",
     "verify:supabase": "node src/scripts/verify-supabase-crud.js",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "prisma:pull": "prisma db pull",
-    "prisma:migrate": "prisma migrate dev"
+    "prisma:migrate": "prisma migrate dev",
+    "test:email": "node src/scripts/test-email-connection.js"
   },
   "dependencies": {
     "@prisma/client": "^6.4.0",

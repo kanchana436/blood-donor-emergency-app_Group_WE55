@@ -9,6 +9,7 @@ import '../../widgets/custom_button.dart';
 import '../donor/donor_main_navigation.dart';
 import '../donor/donor_profile_setup_screen.dart';
 import '../recipient/recipient_main_navigation.dart';
+import '../manager/manager_main_navigation.dart';
 
 class EmailVerificationScreen extends StatefulWidget {
   final String email;
@@ -169,7 +170,12 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
       );
 
       final user = authProvider.currentUser;
-      if (widget.role == 'donor' && user != null) {
+      if (user?.role == 'manager' || user?.role == 'admin') {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const ManagerMainNavigation()),
+          (route) => false,
+        );
+      } else if (widget.role == 'donor' && user != null) {
         await donorProvider.loadDonorData(user.id);
         if (!mounted) return;
 

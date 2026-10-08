@@ -36,8 +36,9 @@ class TestStockService extends BloodStockService {
   }) async {
     saves++;
     if (pending != null) await pending!.future;
-    if (fail)
+    if (fail) {
       throw Exception('Stock already exists for this blood group and location');
+    }
     return record;
   }
 }

@@ -103,9 +103,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                 text: 'Continue as ${_getRoleDisplayName(_selectedRole)}',
                 customColor: _getRoleColor(_selectedRole),
                 onPressed: () {
-                  authProvider.setActiveRole(
-                    _selectedRole == 'manager' ? 'recipient' : _selectedRole,
-                  );
+                  authProvider.setActiveRole(_selectedRole);
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (_) => LoginScreen(role: _selectedRole),

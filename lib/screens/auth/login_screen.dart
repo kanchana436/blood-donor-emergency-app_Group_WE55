@@ -8,6 +8,7 @@ import '../../widgets/custom_text_field.dart';
 import '../donor/donor_main_navigation.dart';
 import '../donor/donor_profile_setup_screen.dart';
 import '../recipient/recipient_main_navigation.dart';
+import '../manager/manager_main_navigation.dart';
 import 'register_screen.dart';
 import 'forgot_password_screen.dart';
 import 'email_verification_screen.dart';
@@ -30,6 +31,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
 
   Color get _themeColor {
+    if (widget.role == 'manager') return AppColors.success;
     return widget.role == 'donor'
         ? AppColors.donorPrimary
         : AppColors.recipientPrimary;
@@ -45,7 +47,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (widget.role == 'donor') {
       _emailController.text = 'alexander@lifelink.org';
       _passwordController.text = 'password123';
-    } else {
+    } else if (widget.role == 'recipient') {
       _emailController.text = 'sarah.p@lifelink.org';
       _passwordController.text = 'password123';
     }
@@ -74,7 +76,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (success) {
       final user = authProvider.currentUser!;
-      if (user.role == 'donor') {
+      if (user.role == 'manager' || user.role == 'admin') {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const ManagerMainNavigation()),
+        );
+      } else if (user.role == 'donor') {
         await donorProvider.loadDonorData(user.id);
         if (!mounted) return;
 
@@ -173,14 +179,14 @@ class _LoginScreenState extends State<LoginScreen> {
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Icon(
-                    isDonor ? Icons.water_drop_rounded : Icons.volunteer_activism_rounded,
+                    widget.role == 'manager' ? Icons.local_hospital_rounded : isDonor ? Icons.water_drop_rounded : Icons.volunteer_activism_rounded,
                     color: _themeColor,
                     size: 30,
                   ),
                 ),
                 const SizedBox(height: 20),
                 Text(
-                  isDonor ? 'Welcome, Donor' : 'Welcome, Caregiver',
+                  widget.role == 'manager' ? 'Welcome, Coordinator' : isDonor ? 'Welcome, Donor' : 'Welcome, Caregiver',
                   style: const TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w800,
@@ -189,7 +195,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  isDonor
+                  widget.role == 'manager'
+                      ? 'Sign in to manage blood bank inventory and hospital operations.'
+                      : isDonor
                       ? 'Sign in to access your donation dashboard and urgent alerts.'
                       : 'Sign in to request blood units and connect with verified donors.',
                   style: const TextStyle(

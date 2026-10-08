@@ -28,6 +28,10 @@ class ApiConstants {
   static const String respondToRequest = '/donors/requests/respond';
   static const String donationRecords = '/donations';
 
+  static const String emergencyContacts = '/emergency-contacts';
+
+  static const String verificationQueue = '/verification-queue';
+
   // Blood stock endpoints
   static const String bloodStock = '/blood-stock';
 

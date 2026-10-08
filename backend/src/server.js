@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
 const express = require('express');
 const cors = require('cors');
 
@@ -8,6 +8,8 @@ const requestRoutes = require('./routes/request.routes');
 const notificationRoutes = require('./routes/notification.routes');
 const donationRoutes = require('./routes/donation.routes');
 const bloodStockRoutes = require('./routes/blood-stock.routes');
+const verificationQueueRoutes = require('./routes/verification-queue.routes');
+const emergencyContactRoutes = require('./routes/emergency-contact.routes');
 const { authenticateToken } = require('./middleware/auth.middleware');
 const { verifyEmailConnection, getEmailConfigSummary } = require('./services/email.service');
 
@@ -56,6 +58,8 @@ app.use('/api/requests', requestRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/donations', donationRoutes);
 app.use('/api/blood-stock', bloodStockRoutes);
+app.use('/api/emergency-contacts', emergencyContactRoutes);
+app.use('/api/verification-queue', verificationQueueRoutes);
 
 // 404 Handler
 app.use((req, res) => {

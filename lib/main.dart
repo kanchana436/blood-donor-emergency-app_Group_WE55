@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'core/theme/app_theme.dart';
 import 'providers/auth_provider.dart';
+import 'providers/verification_queue_provider.dart';
+import 'providers/emergency_contact_provider.dart';
 import 'providers/blood_stock_provider.dart';
 import 'providers/donor_provider.dart';
 import 'providers/request_provider.dart';
@@ -43,6 +45,14 @@ class LifeLinkApp extends StatelessWidget {
         ChangeNotifierProxyProvider<AuthProvider, BloodStockProvider>(
           create: (_) => BloodStockProvider(),
           update: (_, auth, stock) => stock!..setUser(auth.currentUser?.id),
+        ),
+        ChangeNotifierProxyProvider<AuthProvider, EmergencyContactProvider>(
+          create: (_) => EmergencyContactProvider(),
+          update: (_, auth, contacts) => contacts!..setUser(auth.currentUser?.id),
+        ),
+        ChangeNotifierProxyProvider<AuthProvider, VerificationQueueProvider>(
+          create: (_) => VerificationQueueProvider(),
+          update: (_, auth, queue) => queue!..setUser(auth.currentUser?.id),
         ),
         ChangeNotifierProvider(create: (_) => DonorProvider()),
         ChangeNotifierProvider(create: (_) => RequestProvider()),
