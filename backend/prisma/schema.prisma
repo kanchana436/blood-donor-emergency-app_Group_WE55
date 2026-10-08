@@ -7,30 +7,29 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
 model User {
-  id        String   @id @default(uuid())
-  name      String
-  email     String   @unique
-  phone     String
-  password  String
-  role      String   @default("donor") // "donor", "recipient", "manager"
-  isActive  Boolean  @default(true)
-  fcmToken  String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  donorProfile   DonorProfile?
-  bloodRequests  BloodRequest[]
-  donorResponses DonorResponse[]
+  id              String           @id @default(uuid())
+  name            String
+  email           String           @unique
+  phone           String
+  password        String
+  role            String           @default("donor")
+  isActive        Boolean          @default(true)
+  fcmToken        String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  bloodRequests   BloodRequest[]
   donationRecords DonationRecord[]
-  notifications  Notification[]
+  donorProfile    DonorProfile?
+  donorResponses  DonorResponse[]
+  notifications   Notification[]
 }
 
 model DonorProfile {
   id                String    @id @default(uuid())
   userId            String    @unique
-  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  bloodGroup        String    // "A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"
+  bloodGroup        String
   isAvailable       Boolean   @default(true)
   city              String
   address           String    @default("")
@@ -39,55 +38,54 @@ model DonorProfile {
   lastDonationDate  DateTime?
   totalDonations    Int       @default(0)
   livesSaved        Int       @default(0)
-  eligibilityStatus String    @default("Eligible") // "Eligible", "Deferred", "Ineligible"
+  eligibilityStatus String    @default("Eligible")
   weightKg          Float?
   medicalConditions String?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model BloodRequest {
-  id              String   @id @default(uuid())
+  id              String          @id @default(uuid())
   requesterId     String
-  requester       User     @relation(fields: [requesterId], references: [id], onDelete: Cascade)
   requesterName   String
   patientName     String
   bloodGroup      String
-  unitsRequired   Int      @default(1)
-  urgency         String   @default("Emergency") // "Emergency", "Urgent", "Standard"
+  unitsRequired   Int             @default(1)
+  urgency         String          @default("Emergency")
   hospitalName    String
   hospitalAddress String
-  latitude        Float    @default(6.9271)
-  longitude       Float    @default(79.8612)
+  latitude        Float           @default(6.9271)
+  longitude       Float           @default(79.8612)
   contactPhone    String
-  additionalNotes String   @default("")
-  status          String   @default("Open") // "Open", "InProgress", "Fulfilled", "Cancelled"
+  additionalNotes String          @default("")
+  status          String          @default("Open")
   requiredBefore  DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  requester       User            @relation(fields: [requesterId], references: [id], onDelete: Cascade)
   responses       DonorResponse[]
 }
 
 model DonorResponse {
   id              String       @id @default(uuid())
   requestId       String
-  request         BloodRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
   donorId         String
-  donor           User         @relation(fields: [donorId], references: [id], onDelete: Cascade)
   donorName       String
   donorPhone      String
   donorBloodGroup String
-  status          String       @default("Pending") // "Pending", "Accepted", "Declined"
+  status          String       @default("Pending")
   distanceKm      Float        @default(2.5)
   note            String?
   respondedAt     DateTime     @default(now())
+  donor           User         @relation(fields: [donorId], references: [id], onDelete: Cascade)
+  request         BloodRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
 }
 
 model DonationRecord {
   id             String   @id @default(uuid())
   donorId        String
-  donor          User     @relation(fields: [donorId], references: [id], onDelete: Cascade)
   requestId      String
   hospitalName   String
   patientName    String
@@ -96,16 +94,17 @@ model DonationRecord {
   donationDate   DateTime @default(now())
   status         String   @default("Completed")
   certificateUrl String?
+  donor          User     @relation(fields: [donorId], references: [id], onDelete: Cascade)
 }
 
 model Notification {
   id               String   @id @default(uuid())
   userId           String
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   title            String
   message          String
-  type             String   @default("emergency") // "emergency", "match", "accepted", "reminder"
+  type             String   @default("emergency")
   isRead           Boolean  @default(false)
   relatedRequestId String?
   timestamp        DateTime @default(now())
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

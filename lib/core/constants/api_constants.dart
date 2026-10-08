@@ -1,10 +1,10 @@
 class ApiConstants {
   // Default Node.js + Express backend URL
   // Can be adjusted from settings screen in the app
-  static String baseUrl = 'http://localhost:5000/api';
+  static String baseUrl = 'http://localhost:5001/api';
 
   // For Android emulator testing, localhost is 10.0.2.2
-  static const String androidEmulatorBaseUrl = 'http://10.0.2.2:5000/api';
+  static const String androidEmulatorBaseUrl = 'http://10.0.2.2:5001/api';
 
   // Auth endpoints
   static const String login = '/auth/login';
