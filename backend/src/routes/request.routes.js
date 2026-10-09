@@ -2,6 +2,13 @@ const express = require('express');
 const router = express.Router();
 const { prisma, db } = require('../prisma');
 const { findSuitableDonors } = require('../utils/matching');
+const {
+  validateFullName,
+  validateBloodGroup,
+  validatePhone,
+  validateUnitsRequired,
+  validateUrgency,
+} = require('../utils/validation');
 
 function formatRequest(req) {
   if (!req) return null;
@@ -197,6 +204,32 @@ router.post('/', async (req, res) => {
       latitude,
       longitude,
     } = req.body;
+
+    // Validate blood request fields
+    const patientValidation = validateFullName(patientName);
+    if (!patientValidation.valid) {
+      return res.status(400).json({ success: false, message: patientValidation.message });
+    }
+
+    const bloodGroupValidation = validateBloodGroup(bloodGroup);
+    if (!bloodGroupValidation.valid) {
+      return res.status(400).json({ success: false, message: bloodGroupValidation.message });
+    }
+
+    const phoneValidation = validatePhone(contactPhone);
+    if (!phoneValidation.valid) {
+      return res.status(400).json({ success: false, message: phoneValidation.message });
+    }
+
+    const unitsValidation = validateUnitsRequired(unitsRequired);
+    if (!unitsValidation.valid) {
+      return res.status(400).json({ success: false, message: unitsValidation.message });
+    }
+
+    const urgencyValidation = validateUrgency(urgency);
+    if (!urgencyValidation.valid) {
+      return res.status(400).json({ success: false, message: urgencyValidation.message });
+    }
 
     if (prisma) {
       try {
