@@ -10,9 +10,6 @@ import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
 import 'request_tracking_screen.dart';
 
-/// Type alias for validator referencing
-typedef Validators = FormValidators;
-
 class CreateBloodRequestScreen extends StatefulWidget {
   const CreateBloodRequestScreen({super.key});
 
@@ -302,12 +299,7 @@ class _CreateBloodRequestScreenState extends State<CreateBloodRequestScreen> {
                   controller: _hospitalNameController,
                   hintText: 'e.g. Asiri Central Hospital',
                   prefixIcon: Icons.local_hospital_outlined,
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Please enter the hospital name';
-                    }
-                    return null;
-                  },
+                  validator: Validators.validateHospitalName,
                 ),
                 const SizedBox(height: 14),
                 CustomTextField(

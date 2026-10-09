@@ -218,5 +218,26 @@ class FormValidators {
     }
     return null;
   }
+
+  /// Hospital Name Validation
+  /// - Required
+  /// - Trimmed
+  /// - Minimum 3 characters
+  /// - Maximum 100 characters
+  static String? validateHospitalName(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Please enter the hospital name';
+    }
+    final trimmed = value.trim();
+    if (trimmed.length < 3) {
+      return 'Hospital name must be at least 3 characters';
+    }
+    if (trimmed.length > 100) {
+      return 'Hospital name must not exceed 100 characters';
+    }
+    return null;
+  }
 }
 
+/// Type alias for validator referencing
+typedef Validators = FormValidators;
