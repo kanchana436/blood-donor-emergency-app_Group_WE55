@@ -6,6 +6,9 @@ const { prisma, db } = require('../prisma');
 router.get('/unread-count', async (req, res) => {
   try {
     const { userId } = req.query;
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'userId is required' });
+    }
 
     if (prisma && userId) {
       try {
@@ -29,6 +32,9 @@ router.get('/unread-count', async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const { userId } = req.query;
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'userId is required' });
+    }
 
     if (prisma) {
       try {
@@ -180,6 +186,9 @@ router.patch('/:id/read', async (req, res) => {
 router.post('/read-all', async (req, res) => {
   try {
     const { userId } = req.body;
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'userId is required' });
+    }
 
     if (prisma) {
       try {
