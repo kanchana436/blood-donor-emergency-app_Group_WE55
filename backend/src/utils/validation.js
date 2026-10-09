@@ -4,6 +4,7 @@
  */
 
 const VALID_BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+const VALID_URGENCIES = ['Emergency', 'Urgent', 'Standard'];
 
 /**
  * 1. Full Name Validation
@@ -238,8 +239,57 @@ function validatePassword(password, fieldName = 'Password') {
   return { valid: true, value: password };
 }
 
+/**
+ * Units Required Validation
+ * - Required
+ * - Must be a whole number from 1 to 10
+ */
+function validateUnitsRequired(units) {
+  if (units === undefined || units === null || units === '') {
+    return { valid: false, message: 'Units required is required' };
+  }
+  const stringVal = String(units).trim();
+  if (stringVal.length === 0) {
+    return { valid: false, message: 'Units required is required' };
+  }
+  if (!/^\d+$/.test(stringVal)) {
+    return { valid: false, message: 'Units required must be a whole number' };
+  }
+  const numericVal = parseInt(stringVal, 10);
+  if (numericVal < 1 || numericVal > 10) {
+    return { valid: false, message: 'Units required must be between 1 and 10' };
+  }
+  return { valid: true, value: numericVal };
+}
+
+/**
+ * Urgency Level Validation
+ * - Required
+ * - Must be one of: Emergency, Urgent, Standard
+ */
+function validateUrgency(urgency) {
+  if (urgency === undefined || urgency === null || typeof urgency !== 'string') {
+    return { valid: false, message: 'Please select an urgency level' };
+  }
+  const trimmed = urgency.trim();
+  if (trimmed.length === 0) {
+    return { valid: false, message: 'Please select an urgency level' };
+  }
+  const matched = VALID_URGENCIES.find(
+    (u) => u.toLowerCase() === trimmed.toLowerCase()
+  );
+  if (!matched) {
+    return {
+      valid: false,
+      message: 'Urgency must be one of: Emergency, Urgent, Standard',
+    };
+  }
+  return { valid: true, value: matched };
+}
+
 module.exports = {
   VALID_BLOOD_GROUPS,
+  VALID_URGENCIES,
   validateFullName,
   validateEmail,
   validatePhone,
@@ -249,5 +299,7 @@ module.exports = {
   validateBodyWeight,
   validateIdNumber,
   validatePassword,
+  validateUnitsRequired,
+  validateUrgency,
 };
 
