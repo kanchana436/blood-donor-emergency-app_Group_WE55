@@ -134,127 +134,139 @@ class NotificationsScreen extends StatelessWidget {
                     padding: EdgeInsets.all(16),
                     child: LoadingShimmer(count: 4),
                   )
-                : notifications.isEmpty
-                    ? EmptyStateView(
-                        icon: Icons.notifications_off_outlined,
-                        title: 'No Notifications',
-                        message: 'You are all caught up! New emergency alerts and responses will appear here.',
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        itemCount: notifications.length,
-                        itemBuilder: (context, index) {
-                          final notif = notifications[index];
-                          final typeColor = _getTypeColor(notif.type);
-
-                          return Dismissible(
-                            key: Key(notif.id),
-                            direction: DismissDirection.endToStart,
-                            background: Container(
-                              alignment: Alignment.centerRight,
-                              padding: const EdgeInsets.only(right: 20),
-                              color: AppColors.error,
-                              child: const Icon(Icons.delete_outline, color: Colors.white),
-                            ),
-                            onDismissed: (_) {
-                              notifProvider.deleteNotification(notif.id);
-                            },
-                            child: InkWell(
-                              onTap: () async {
-                                notifProvider.markAsRead(notif.id);
-                                if (notif.relatedRequestId != null) {
-                                  final req = await reqProvider.getRequestById(notif.relatedRequestId!);
-                                  if (req != null && context.mounted) {
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (_) => DonorRequestDetailsScreen(request: req),
-                                      ),
-                                    );
-                                  }
-                                }
-                              },
-                              borderRadius: BorderRadius.circular(14),
-                              child: Container(
-                                margin: const EdgeInsets.symmetric(vertical: 4),
-                                padding: const EdgeInsets.all(14),
-                                decoration: BoxDecoration(
-                                  color: notif.isRead ? Colors.white : const Color(0xFFFFF8F8),
-                                  borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(
-                                    color: notif.isRead
-                                        ? AppColors.border
-                                        : AppColors.donorPrimary.withOpacity(0.2),
-                                  ),
-                                ),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: typeColor.withOpacity(0.12),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Icon(_getTypeIcon(notif.type), color: typeColor, size: 20),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Expanded(
-                                                child: Text(
-                                                  notif.title,
-                                                  style: TextStyle(
-                                                    fontSize: 14,
-                                                    fontWeight: notif.isRead
-                                                        ? FontWeight.w600
-                                                        : FontWeight.w800,
-                                                    color: AppColors.textPrimary,
-                                                  ),
-                                                ),
-                                              ),
-                                              if (!notif.isRead)
-                                                Container(
-                                                  width: 8,
-                                                  height: 8,
-                                                  decoration: const BoxDecoration(
-                                                    color: AppColors.donorPrimary,
-                                                    shape: BoxShape.circle,
-                                                  ),
-                                                ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            notif.message,
-                                            style: const TextStyle(
-                                              fontSize: 13,
-                                              color: AppColors.textSecondary,
-                                              height: 1.3,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 6),
-                                          Text(
-                                            DateFormatter.timeAgo(notif.timestamp),
-                                            style: const TextStyle(
-                                              fontSize: 11,
-                                              color: AppColors.textMuted,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
+                : RefreshIndicator(
+                    onRefresh: () => notifProvider.loadNotifications(userId),
+                    child: notifications.isEmpty
+                        ? LayoutBuilder(
+                            builder: (context, constraints) => SingleChildScrollView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                                child: const EmptyStateView(
+                                  icon: Icons.notifications_off_outlined,
+                                  title: 'No Notifications',
+                                  message: 'You are all caught up! New emergency alerts and responses will appear here.',
                                 ),
                               ),
                             ),
-                          );
-                        },
-                      ),
+                          )
+                        : ListView.builder(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            itemCount: notifications.length,
+                            itemBuilder: (context, index) {
+                              final notif = notifications[index];
+                              final typeColor = _getTypeColor(notif.type);
+
+                              return Dismissible(
+                                key: Key(notif.id),
+                                direction: DismissDirection.endToStart,
+                                background: Container(
+                                  alignment: Alignment.centerRight,
+                                  padding: const EdgeInsets.only(right: 20),
+                                  color: AppColors.error,
+                                  child: const Icon(Icons.delete_outline, color: Colors.white),
+                                ),
+                                onDismissed: (_) {
+                                  notifProvider.deleteNotification(notif.id);
+                                },
+                                child: InkWell(
+                                  onTap: () async {
+                                    notifProvider.markAsRead(notif.id);
+                                    if (notif.relatedRequestId != null) {
+                                      final req = await reqProvider.getRequestById(notif.relatedRequestId!);
+                                      if (req != null && context.mounted) {
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (_) => DonorRequestDetailsScreen(request: req),
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  },
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: Container(
+                                    margin: const EdgeInsets.symmetric(vertical: 4),
+                                    padding: const EdgeInsets.all(14),
+                                    decoration: BoxDecoration(
+                                      color: notif.isRead ? Colors.white : const Color(0xFFFFF8F8),
+                                      borderRadius: BorderRadius.circular(14),
+                                      border: Border.all(
+                                        color: notif.isRead
+                                            ? AppColors.border
+                                            : AppColors.donorPrimary.withOpacity(0.2),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: typeColor.withOpacity(0.12),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Icon(_getTypeIcon(notif.type), color: typeColor, size: 20),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                children: [
+                                                  Expanded(
+                                                    child: Text(
+                                                      notif.title,
+                                                      style: TextStyle(
+                                                        fontSize: 14,
+                                                        fontWeight: notif.isRead
+                                                            ? FontWeight.w600
+                                                            : FontWeight.w800,
+                                                        color: AppColors.textPrimary,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  if (!notif.isRead)
+                                                    Container(
+                                                      width: 8,
+                                                      height: 8,
+                                                      decoration: const BoxDecoration(
+                                                        color: AppColors.donorPrimary,
+                                                        shape: BoxShape.circle,
+                                                      ),
+                                                    ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                notif.message,
+                                                style: const TextStyle(
+                                                  fontSize: 13,
+                                                  color: AppColors.textSecondary,
+                                                  height: 1.3,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 6),
+                                              Text(
+                                                DateFormatter.timeAgo(notif.timestamp),
+                                                style: const TextStyle(
+                                                  fontSize: 11,
+                                                  color: AppColors.textMuted,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
           ),
         ],
       ),
