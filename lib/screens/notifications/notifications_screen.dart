@@ -59,7 +59,31 @@ class NotificationsScreen extends StatelessWidget {
         actions: [
           if (notifications.isNotEmpty)
             TextButton(
-              onPressed: () => notifProvider.markAllAsRead(userId),
+              onPressed: () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Mark all as read?'),
+                    content: const Text(
+                      'Are you sure you want to mark all notifications as read?',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(ctx).pop(false),
+                        child: const Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.of(ctx).pop(true),
+                        child: const Text('Mark all read'),
+                      ),
+                    ],
+                  ),
+                );
+
+                if (confirm == true) {
+                  await notifProvider.markAllAsRead(userId);
+                }
+              },
               child: const Text(
                 'Mark All Read',
                 style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
