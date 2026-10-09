@@ -339,6 +339,42 @@ router.put('/:id', async (req, res) => {
     const { id } = req.params;
     const { unitsRequired, urgency, hospitalName, hospitalAddress, additionalNotes, status } = req.body;
 
+    // Validate partial update fields if provided
+    if (req.body.patientName !== undefined) {
+      const patientValidation = validateFullName(req.body.patientName);
+      if (!patientValidation.valid) {
+        return res.status(400).json({ success: false, message: patientValidation.message });
+      }
+    }
+
+    if (req.body.bloodGroup !== undefined) {
+      const bloodGroupValidation = validateBloodGroup(req.body.bloodGroup);
+      if (!bloodGroupValidation.valid) {
+        return res.status(400).json({ success: false, message: bloodGroupValidation.message });
+      }
+    }
+
+    if (req.body.contactPhone !== undefined) {
+      const phoneValidation = validatePhone(req.body.contactPhone);
+      if (!phoneValidation.valid) {
+        return res.status(400).json({ success: false, message: phoneValidation.message });
+      }
+    }
+
+    if (req.body.unitsRequired !== undefined) {
+      const unitsValidation = validateUnitsRequired(req.body.unitsRequired);
+      if (!unitsValidation.valid) {
+        return res.status(400).json({ success: false, message: unitsValidation.message });
+      }
+    }
+
+    if (req.body.urgency !== undefined) {
+      const urgencyValidation = validateUrgency(req.body.urgency);
+      if (!urgencyValidation.valid) {
+        return res.status(400).json({ success: false, message: urgencyValidation.message });
+      }
+    }
+
     if (prisma) {
       try {
         const updateData = {};
