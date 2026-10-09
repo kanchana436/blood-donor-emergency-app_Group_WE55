@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/validators.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/request_provider.dart';
 import '../../services/location_service.dart';
@@ -8,6 +9,9 @@ import '../../widgets/blood_group_selector.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
 import 'request_tracking_screen.dart';
+
+/// Type alias for validator referencing
+typedef Validators = FormValidators;
 
 class CreateBloodRequestScreen extends StatefulWidget {
   const CreateBloodRequestScreen({super.key});
@@ -330,12 +334,7 @@ class _CreateBloodRequestScreenState extends State<CreateBloodRequestScreen> {
                   hintText: '+94 77 123 4567',
                   prefixIcon: Icons.phone_outlined,
                   keyboardType: TextInputType.phone,
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Please enter a contact number';
-                    }
-                    return null;
-                  },
+                  validator: Validators.validatePhone,
                 ),
                 const SizedBox(height: 14),
                 CustomTextField(
