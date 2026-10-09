@@ -29,6 +29,7 @@ model User {
   emergencyContacts      EmergencyContact[]
   submittedVerifications VerificationQueue[] @relation("VerificationSubmitter")
   reviewedVerifications  VerificationQueue[] @relation("VerificationReviewer")
+  donorAvailabilities    DonorAvailability[]
 }
 
 model DonorProfile {
@@ -180,4 +181,22 @@ model VerificationQueue {
   @@index([status, createdAt])
   @@index([submittedById])
   @@index([reviewedById])
+}
+
+model DonorAvailability {
+  id             String    @id @default(uuid())
+  donorId        String
+  status         String    @default("Available")
+  availableFrom  DateTime
+  availableUntil DateTime?
+  city           String?
+  notes          String?
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  donor User @relation(fields: [donorId], references: [id], onDelete: Cascade)
+
+  @@index([donorId, isActive])
+  @@index([status, availableFrom, availableUntil])
 }

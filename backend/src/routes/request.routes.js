@@ -149,24 +149,62 @@ router.get('/:id/matching-donors', async (req, res) => {
 
     // Run matching algorithm against candidates
     let availableCandidates = [];
+    const now = new Date();
     if (prisma) {
       try {
         const profiles = await prisma.donorProfile.findMany({
-          include: { user: true },
+          include: {
+            user: {
+              include: {
+                donorAvailabilities: {
+                  where: { isActive: true },
+                  orderBy: { availableFrom: 'desc' },
+                },
+              },
+            },
+          },
         });
-        availableCandidates = profiles.map(p => ({
-          ...p,
-          userName: p.user ? p.user.name : 'Donor',
-          userPhone: p.user ? p.user.phone : '',
-        }));
+        availableCandidates = profiles.map(p => {
+          const availabilities = p.user?.donorAvailabilities || [];
+          let isAvailable = p.isAvailable ?? true;
+          if (availabilities.length > 0) {
+            const current = availabilities.find(a => {
+              const from = new Date(a.availableFrom);
+              const until = a.availableUntil ? new Date(a.availableUntil) : null;
+              return from <= now && (!until || until >= now);
+            });
+            isAvailable = current ? current.status === 'Available' : false;
+          }
+
+          return {
+            ...p,
+            isAvailable,
+            userName: p.user ? p.user.name : 'Donor',
+            userPhone: p.user ? p.user.phone : '',
+          };
+        });
       } catch (_) {}
     }
 
     if (availableCandidates.length === 0) {
       availableCandidates = db.donorProfiles.map(p => {
         const user = db.users.find(u => u.id === p.userId) || {};
+        const availabilities = (db.donorAvailabilities || []).filter(
+          a => a.donorId === p.userId && a.isActive
+        );
+        let isAvailable = p.isAvailable ?? true;
+        if (availabilities.length > 0) {
+          const current = availabilities.find(a => {
+            const from = new Date(a.availableFrom);
+            const until = a.availableUntil ? new Date(a.availableUntil) : null;
+            return from <= now && (!until || until >= now);
+          });
+          isAvailable = current ? current.status === 'Available' : false;
+        }
+
         return {
           ...p,
+          isAvailable,
           userName: user.name,
           userPhone: user.phone,
         };

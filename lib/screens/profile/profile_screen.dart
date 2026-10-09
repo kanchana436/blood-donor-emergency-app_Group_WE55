@@ -8,6 +8,7 @@ import '../../models/verification_queue_model.dart';
 import '../../widgets/blood_group_badge.dart';
 import '../donor/donor_main_navigation.dart';
 import '../donor/donor_profile_setup_screen.dart';
+import '../donor/donor_availability_screen.dart';
 import '../recipient/recipient_main_navigation.dart';
 import '../auth/role_selection_screen.dart';
 import '../auth/login_screen.dart';
@@ -462,6 +463,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           }
                         }
                       },
+                    ),
+                    const Divider(height: 1, color: AppColors.border),
+                    _buildSettingTile(
+                      icon: Icons.event_available_rounded,
+                      title: 'Donor Availability Schedule',
+                      subtitle: 'Set your donation availability dates, city, and notes',
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const DonorAvailabilityScreen()),
+                      ),
                     ),
                   ],
 

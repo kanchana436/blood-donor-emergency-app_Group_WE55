@@ -85,35 +85,68 @@ const handleSearchDonors = async (req, res) => {
                 phone: true,
                 role: true,
                 isActive: true,
+                donorAvailabilities: {
+                  where: { isActive: true },
+                  orderBy: { availableFrom: 'desc' },
+                },
               },
             },
           },
           orderBy: { createdAt: 'desc' },
         });
 
-        // Safe mapping handling NULL or empty city values safely
-        const formatted = profiles.map(p => ({
-          id: p.id,
-          userId: p.userId,
-          name: p.user?.name || 'LifeLink Donor',
-          phone: p.user?.phone || '+94 77 123 4567',
-          email: p.user?.email || '',
-          bloodGroup: p.bloodGroup || 'O+',
-          isAvailable: p.isAvailable ?? true,
-          city: p.city || 'Unspecified',
-          address: p.address || '',
-          latitude: p.latitude ?? 6.9271,
-          longitude: p.longitude ?? 79.8612,
-          lastDonationDate: p.lastDonationDate,
-          totalDonations: p.totalDonations ?? 0,
-          livesSaved: p.livesSaved ?? 0,
-          eligibilityStatus: p.eligibilityStatus || 'Eligible',
-          weightKg: p.weightKg,
-          medicalConditions: p.medicalConditions,
-          createdAt: p.createdAt,
-          updatedAt: p.updatedAt,
-          user: p.user,
-        }));
+        const now = new Date();
+        // Safe mapping with dynamic availability computation
+        const formatted = profiles
+          .map(p => {
+            const availabilities = p.user?.donorAvailabilities || [];
+            let effectiveAvailable;
+
+            if (availabilities.length > 0) {
+              const currentRecord = availabilities.find(a => {
+                const from = new Date(a.availableFrom);
+                const until = a.availableUntil ? new Date(a.availableUntil) : null;
+                return from <= now && (!until || until >= now);
+              });
+              if (currentRecord) {
+                effectiveAvailable = currentRecord.status === 'Available';
+              } else {
+                // If all active schedules expired or none valid right now
+                effectiveAvailable = false;
+              }
+            } else {
+              effectiveAvailable = p.isAvailable ?? true;
+            }
+
+            return {
+              id: p.id,
+              userId: p.userId,
+              name: p.user?.name || 'LifeLink Donor',
+              phone: p.user?.phone || '+94 77 123 4567',
+              email: p.user?.email || '',
+              bloodGroup: p.bloodGroup || 'O+',
+              isAvailable: effectiveAvailable,
+              city: p.city || 'Unspecified',
+              address: p.address || '',
+              latitude: p.latitude ?? 6.9271,
+              longitude: p.longitude ?? 79.8612,
+              lastDonationDate: p.lastDonationDate,
+              totalDonations: p.totalDonations ?? 0,
+              livesSaved: p.livesSaved ?? 0,
+              eligibilityStatus: p.eligibilityStatus || 'Eligible',
+              weightKg: p.weightKg,
+              medicalConditions: p.medicalConditions,
+              createdAt: p.createdAt,
+              updatedAt: p.updatedAt,
+              user: p.user,
+            };
+          })
+          .filter(p => {
+            if (targetAvailable !== undefined && p.isAvailable !== targetAvailable) {
+              return false;
+            }
+            return true;
+          });
 
         return res.json({
           success: true,
@@ -126,13 +159,29 @@ const handleSearchDonors = async (req, res) => {
     }
 
     // In-memory fallback
+    const now = new Date();
     const filtered = db.donorProfiles.filter(p => {
       const user = db.users.find(u => u.id === p.userId);
       // Exclude deactivated
       if (!user || user.isActive === false) return false;
 
+      const availabilities = (db.donorAvailabilities || []).filter(
+        a => a.donorId === p.userId && a.isActive
+      );
+      let effectiveAvailable;
+      if (availabilities.length > 0) {
+        const currentRecord = availabilities.find(a => {
+          const from = new Date(a.availableFrom);
+          const until = a.availableUntil ? new Date(a.availableUntil) : null;
+          return from <= now && (!until || until >= now);
+        });
+        effectiveAvailable = currentRecord ? currentRecord.status === 'Available' : false;
+      } else {
+        effectiveAvailable = p.isAvailable ?? true;
+      }
+
       // Exclude unavailable (if filtering for available)
-      if (targetAvailable !== undefined && p.isAvailable !== targetAvailable) return false;
+      if (targetAvailable !== undefined && effectiveAvailable !== targetAvailable) return false;
 
       // Filter by blood group
       if (cleanBloodGroup && p.bloodGroup.toUpperCase() !== cleanBloodGroup) return false;

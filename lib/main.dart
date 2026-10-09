@@ -6,6 +6,7 @@ import 'providers/auth_provider.dart';
 import 'providers/verification_queue_provider.dart';
 import 'providers/emergency_contact_provider.dart';
 import 'providers/blood_stock_provider.dart';
+import 'providers/donor_availability_provider.dart';
 import 'providers/donor_provider.dart';
 import 'providers/request_provider.dart';
 import 'providers/notification_provider.dart';
@@ -53,6 +54,10 @@ class LifeLinkApp extends StatelessWidget {
         ChangeNotifierProxyProvider<AuthProvider, VerificationQueueProvider>(
           create: (_) => VerificationQueueProvider(),
           update: (_, auth, queue) => queue!..setUser(auth.currentUser?.id),
+        ),
+        ChangeNotifierProxyProvider<AuthProvider, DonorAvailabilityProvider>(
+          create: (_) => DonorAvailabilityProvider(),
+          update: (_, auth, avail) => avail!..setUser(auth.currentUser?.id),
         ),
         ChangeNotifierProvider(create: (_) => DonorProvider()),
         ChangeNotifierProvider(create: (_) => RequestProvider()),

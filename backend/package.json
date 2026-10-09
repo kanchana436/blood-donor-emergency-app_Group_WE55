@@ -10,6 +10,7 @@
     "test:verification-queue": "node src/scripts/test-verification-queue-crud.js",
     "test:emergency-contacts": "node src/scripts/test-emergency-contact-crud.js",
     "test:blood-stock": "node src/scripts/test-blood-stock-crud.js",
+    "test:donor-availability": "node src/scripts/test-donor-availability-crud.js",
     "test:db": "node src/scripts/test-db-connection.js",
     "verify:supabase": "node src/scripts/verify-supabase-crud.js",
     "prisma:generate": "prisma generate",

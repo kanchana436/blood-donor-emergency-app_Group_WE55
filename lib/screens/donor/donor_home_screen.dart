@@ -13,6 +13,7 @@ import '../../widgets/empty_state_view.dart';
 import '../../widgets/error_state_view.dart';
 import '../notifications/notifications_screen.dart';
 import 'donor_request_details_screen.dart';
+import 'donor_availability_screen.dart';
 
 class DonorHomeScreen extends StatefulWidget {
   const DonorHomeScreen({super.key});
@@ -250,6 +251,25 @@ class _DonorHomeScreenState extends State<DonorHomeScreen> {
                       },
                     ),
                   ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    foregroundColor: AppColors.donorPrimary,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                  ),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const DonorAvailabilityScreen()),
+                  ),
+                  icon: const Icon(Icons.edit_calendar_rounded, size: 16),
+                  label: const Text(
+                    'Manage Availability Schedule',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                  ),
                 ),
               ),
               const SizedBox(height: 16),

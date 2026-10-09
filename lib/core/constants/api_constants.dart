@@ -1,10 +1,26 @@
-class ApiConstants {
-  // Default Node.js + Express backend URL
-  // Can be adjusted from settings screen in the app
-  static String baseUrl = 'http://10.0.2.2:5001/api';
+import 'package:flutter/foundation.dart';
 
-  // For Android emulator testing, localhost is 10.0.2.2
-  static const String androidEmulatorBaseUrl = 'http://10.0.2.2:5001/api';
+class ApiConstants {
+  // Default Node.js + Express backend URL port
+  static const int serverPort = 5000;
+
+  // Dynamically resolve base URL depending on platform (Web, Android emulator, Desktop/iOS)
+  static String get defaultBaseUrl {
+    if (kIsWeb) {
+      return 'http://localhost:$serverPort/api';
+    } else if (defaultTargetPlatform == TargetPlatform.android) {
+      return 'http://10.0.2.2:$serverPort/api';
+    } else {
+      return 'http://localhost:$serverPort/api';
+    }
+  }
+
+  // Current active backend URL
+  static String baseUrl = defaultBaseUrl;
+
+  // Fallbacks for explicit platform targets
+  static const String androidEmulatorBaseUrl = 'http://10.0.2.2:5000/api';
+  static const String webBaseUrl = 'http://localhost:5000/api';
 
   // Auth endpoints
   static const String login = '/auth/login';
@@ -29,6 +45,8 @@ class ApiConstants {
   static const String donationRecords = '/donations';
 
   static const String emergencyContacts = '/emergency-contacts';
+
+  static const String donorAvailability = '/donor-availability';
 
   static const String verificationQueue = '/verification-queue';
 

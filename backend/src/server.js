@@ -10,6 +10,7 @@ const donationRoutes = require('./routes/donation.routes');
 const bloodStockRoutes = require('./routes/blood-stock.routes');
 const verificationQueueRoutes = require('./routes/verification-queue.routes');
 const emergencyContactRoutes = require('./routes/emergency-contact.routes');
+const donorAvailabilityRoutes = require('./routes/donor-availability.routes');
 const { authenticateToken } = require('./middleware/auth.middleware');
 const { verifyEmailConnection, getEmailConfigSummary } = require('./services/email.service');
 
@@ -60,6 +61,7 @@ app.use('/api/donations', donationRoutes);
 app.use('/api/blood-stock', bloodStockRoutes);
 app.use('/api/emergency-contacts', emergencyContactRoutes);
 app.use('/api/verification-queue', verificationQueueRoutes);
+app.use('/api/donor-availability', donorAvailabilityRoutes);
 
 // 404 Handler
 app.use((req, res) => {
