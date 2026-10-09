@@ -198,3 +198,8 @@ backend/.env.example and recipient navigation were not edited. Existing uncommit
 - Flutter analyze: passed with no issues.
 - Full Flutter suite: 53 tests passed, including four new stock tests.
 - Real Supabase integration preflight: connected, then stopped because public.BloodStock is absent. No test fixtures were created. The SQL has not been applied; live CRUD integration remains pending until table setup and backend startup.
+
+## City notifications and branch ownership extension
+
+The branch ownership and location editing descriptions above are superseded by
+[blood-stock-city-notifications.md](blood-stock-city-notifications.md). Managers/admins now need a trusted branch assignment and can manage only that branch. The branch/location form field is read-only. Follow the linked additive SQL and exact-ID assignment procedure for legacy managers and inventory; no existing records are deleted or recreated. The original CRUD tests are extended for branch authorization and city notifications.

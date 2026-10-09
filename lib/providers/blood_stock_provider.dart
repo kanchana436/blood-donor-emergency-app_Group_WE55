@@ -13,6 +13,11 @@ class BloodStockProvider extends ChangeNotifier {
   String? _error;
   String? _userId;
   String? _filter;
+  String? _branchLocation;
+  int? _notificationsSent;
+
+  String? get branchLocation => _branchLocation;
+  int? get notificationsSent => _notificationsSent;
   int _generation = 0;
 
   List<BloodStockModel> get stocks => List.unmodifiable(_stocks);
@@ -31,6 +36,8 @@ class BloodStockProvider extends ChangeNotifier {
     _saving = false;
     _error = null;
     _filter = null;
+    _branchLocation = null;
+    _notificationsSent = null;
   }
 
   Future<void> load({String? bloodGroup}) async {
@@ -40,6 +47,8 @@ class BloodStockProvider extends ChangeNotifier {
     _error = null;
     notifyListeners();
     try {
+      final branch = await _service.getBranchLocation();
+      if (generation == _generation) _branchLocation = branch;
       final result = await _service.getAll(bloodGroup: bloodGroup);
       if (generation == _generation) _stocks = result;
     } catch (e) {
@@ -86,13 +95,16 @@ class BloodStockProvider extends ChangeNotifier {
     required String location,
     required String status,
   }) => _mutate(() async {
-    await _service.save(
+    _notificationsSent = null;
+    final userId = _userId;
+    final saved = await _service.save(
       id: id,
       bloodGroup: bloodGroup,
       availableUnits: availableUnits,
       location: location,
       status: status,
     );
+    if (userId == _userId) _notificationsSent = saved.notificationsSent;
   });
 
   Future<bool> delete(String id) => _mutate(() => _service.delete(id));

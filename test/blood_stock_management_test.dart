@@ -14,6 +14,7 @@ class TestStockService extends BloodStockService {
   bool fail = false;
   Completer<void>? pending;
   final record = BloodStockModel(
+    notificationsSent: 2,
     id: 'test-id',
     bloodGroup: 'O+',
     availableUnits: 2,
@@ -22,6 +23,9 @@ class TestStockService extends BloodStockService {
     createdAt: DateTime.utc(2026),
     updatedAt: DateTime.utc(2026),
   );
+
+  @override
+  Future<String> getBranchLocation() async => 'Test bank';
 
   @override
   Future<List<BloodStockModel>> getAll({String? bloodGroup}) async => [record];
@@ -71,6 +75,37 @@ Future<void> openForm(
 }
 
 void main() {
+  testWidgets(
+    'manager uses assigned branch and sees notification count after saving',
+    (tester) async {
+      final service = TestStockService();
+      final provider = BloodStockProvider(service: service)..setUser('manager');
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(
+          value: provider,
+          child: const MaterialApp(home: BloodStockManagementScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(provider.branchLocation, 'Test bank');
+      await tester.tap(find.byTooltip('Edit stock'));
+      await tester.pumpAndSettle();
+      final locationField = tester.widget<TextField>(
+        find.byType(TextField).last,
+      );
+      expect(locationField.readOnly, true);
+      expect(locationField.controller?.text, 'Test bank');
+      await tester.enterText(find.byType(TextFormField).first, '15');
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+      expect(service.saves, 1);
+      expect(
+        find.text('Blood stock updated. 2 local users notified.'),
+        findsOneWidget,
+      );
+    },
+  );
+
   testWidgets('create requires blood group, units and location', (
     tester,
   ) async {

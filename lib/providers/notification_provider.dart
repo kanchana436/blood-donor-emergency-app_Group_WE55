@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+
 import '../models/notification_model.dart';
 import '../services/notification_service.dart';
 
 class NotificationProvider with ChangeNotifier {
-  final NotificationService _notificationService = NotificationService();
+  NotificationProvider({NotificationService? service})
+    : _notificationService = service ?? NotificationService();
+  final NotificationService _notificationService;
 
   List<NotificationModel> _notifications = [];
   bool _isLoading = false;
@@ -74,7 +77,11 @@ class NotificationProvider with ChangeNotifier {
     }
   }
 
-  Future<void> simulateEmergencyPush(String userId, String bloodGroup, String hospital) async {
+  Future<void> simulateEmergencyPush(
+    String userId,
+    String bloodGroup,
+    String hospital,
+  ) async {
     final newNotif = await _notificationService.sendLocalNotification(
       userId: userId,
       title: 'CRITICAL: $bloodGroup Blood Needed!',

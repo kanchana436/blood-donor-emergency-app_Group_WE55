@@ -9,8 +9,25 @@ import '../../widgets/empty_state_view.dart';
 import '../../widgets/loading_shimmer.dart';
 import '../donor/donor_request_details_screen.dart';
 
-class NotificationsScreen extends StatelessWidget {
+class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
+
+  @override
+  State<NotificationsScreen> createState() => _NotificationsScreenState();
+}
+
+class _NotificationsScreenState extends State<NotificationsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final userId = context.read<AuthProvider>().currentUser?.id;
+      if (userId != null) {
+        context.read<NotificationProvider>().loadNotifications(userId);
+      }
+    });
+  }
 
   Color _getTypeColor(String type) {
     switch (type.toLowerCase()) {

@@ -1,4 +1,5 @@
 class BloodStockModel {
+  final int? notificationsSent;
   final String id;
   final String bloodGroup;
   final int availableUnits;
@@ -10,6 +11,7 @@ class BloodStockModel {
   static const statuses = ['Available', 'Unavailable', 'Reserved'];
 
   const BloodStockModel({
+    this.notificationsSent,
     required this.id,
     required this.bloodGroup,
     required this.availableUnits,
@@ -21,6 +23,7 @@ class BloodStockModel {
 
   factory BloodStockModel.fromJson(Map<String, dynamic> json) =>
       BloodStockModel(
+        notificationsSent: json['notificationsSent'] as int?,
         id: json['id'] as String,
         bloodGroup: json['bloodGroup'] as String,
         availableUnits: json['availableUnits'] as int,

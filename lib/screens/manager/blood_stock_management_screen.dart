@@ -37,10 +37,12 @@ class _BloodStockManagementScreenState
       builder: (_) => BloodStockFormDialog(stock: stock),
     );
     if (!mounted || saved != true) return;
+    final count = context.read<BloodStockProvider>().notificationsSent;
+    final action = stock == null ? 'Blood stock added' : 'Blood stock updated';
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          stock == null ? 'Blood stock added' : 'Blood stock updated',
+          count == null ? action : '$action. $count local users notified.',
         ),
       ),
     );
@@ -98,7 +100,12 @@ class _BloodStockManagementScreenState
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: provider.isSaving ? null : () => _edit(),
+        onPressed:
+            provider.isSaving ||
+                provider.isLoading ||
+                provider.branchLocation == null
+            ? null
+            : () => _edit(),
         icon: const Icon(Icons.add),
         label: const Text('Add stock'),
       ),
@@ -243,7 +250,12 @@ class _BloodStockFormDialogState extends State<BloodStockFormDialog> {
     _units = TextEditingController(
       text: widget.stock?.availableUnits.toString() ?? '',
     );
-    _location = TextEditingController(text: widget.stock?.location ?? '');
+    _location = TextEditingController(
+      text:
+          context.read<BloodStockProvider>().branchLocation ??
+          widget.stock?.location ??
+          '',
+    );
     _group = widget.stock?.bloodGroup;
     _status = widget.stock?.status ?? 'Available';
   }
@@ -333,8 +345,8 @@ class _BloodStockFormDialogState extends State<BloodStockFormDialog> {
                   const SizedBox(height: 16),
                   CustomTextField(
                     controller: _location,
-                    label: 'Location / blood bank',
-                    readOnly: saving,
+                    label: 'Assigned blood bank / hospital',
+                    readOnly: true,
                     validator: (value) => value == null || value.trim().isEmpty
                         ? 'Location is required'
                         : null,

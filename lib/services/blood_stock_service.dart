@@ -14,6 +14,11 @@ class BloodStockService {
     return response.data;
   }
 
+  Future<String> getBranchLocation() async {
+    final data = _data(await _api.get('${ApiConstants.bloodStock}/branch'));
+    return data['name'] as String;
+  }
+
   Future<List<BloodStockModel>> getAll({String? bloodGroup}) async {
     final endpoint = Uri(
       path: ApiConstants.bloodStock,

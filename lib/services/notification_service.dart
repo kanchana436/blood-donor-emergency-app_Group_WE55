@@ -22,20 +22,9 @@ class NotificationService {
           .toList();
     }
 
-    // Fallback try
-    final fallback = await _apiService.get(ApiConstants.notifications);
-    if (fallback.success && fallback.data != null && fallback.data is List) {
-      return (fallback.data as List)
-          .map((item) => NotificationModel.fromJson(item))
-          .toList();
-    }
-
-    // Mock fallback: return user's notifications or all seeded notifications
-    final userNotifs = _dataStore.notifications
-        .where((n) => n.userId == userId)
-        .toList();
-    if (userNotifs.isNotEmpty) return userNotifs;
-    return _dataStore.notifications;
+    // Keep fallback scoped to this user; a failed fetch must not show other
+    // cities' blood stock notifications (or other users' existing alerts).
+    return _dataStore.notifications.where((n) => n.userId == userId).toList();
   }
 
   // Get Unread Count
