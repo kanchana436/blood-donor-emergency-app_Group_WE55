@@ -154,12 +154,7 @@ class _CreateBloodRequestScreenState extends State<CreateBloodRequestScreen> {
                   label: 'Patient Full Name',
                   hintText: 'e.g. Kavindu Perera',
                   prefixIcon: Icons.person_outline_rounded,
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Please enter the patient name';
-                    }
-                    return null;
-                  },
+                  validator: Validators.validateFullName,
                 ),
                 const SizedBox(height: 18),
 
