@@ -330,6 +330,12 @@ class _CreateBloodRequestScreenState extends State<CreateBloodRequestScreen> {
                   hintText: 'e.g. Scheduled for emergency trauma surgery at 8 AM.',
                   prefixIcon: Icons.note_outlined,
                   maxLines: 3,
+                  validator: (value) {
+                    if (value != null && value.trim().length > 300) {
+                      return 'Clinical notes must not exceed 300 characters';
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 28),
                 CustomButton(
