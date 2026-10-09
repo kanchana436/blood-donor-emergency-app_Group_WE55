@@ -1,3 +1,5 @@
+const { authenticateToken } = require('../middleware/auth.middleware');
+const { verificationProfile } = require('../middleware/verification-profile.middleware');
 const express = require('express');
 const router = express.Router();
 const { prisma, db } = require('../prisma');
@@ -184,7 +186,7 @@ router.get('/', handleSearchDonors);
 router.get('/search', handleSearchDonors);
 
 // POST /api/donors/profile
-router.post('/profile', async (req, res) => {
+router.post('/profile', authenticateToken, verificationProfile(true), async (req, res) => {
   try {
     const { userId, bloodGroup, city, address, isAvailable, latitude, longitude, weightKg } = req.body;
 
@@ -328,7 +330,7 @@ router.get('/profile', async (req, res) => {
 });
 
 // PUT /api/donors/profile
-router.put('/profile', async (req, res) => {
+router.put('/profile', authenticateToken, verificationProfile(true), async (req, res) => {
   try {
     const { userId, bloodGroup, city, address, isAvailable, latitude, longitude, weightKg } = req.body;
 

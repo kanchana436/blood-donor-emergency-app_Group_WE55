@@ -28,6 +28,21 @@ class FakeQueue extends VerificationQueueService {
 }
 Future<void> mount(WidgetTester tester, VerificationQueueProvider p, Widget child) => tester.pumpWidget(ChangeNotifierProvider.value(value: p, child: MaterialApp(home: child)));
 void main() {
+  testWidgets('manager sees named old/new values without raw JSON', (tester) async {
+    final item = VerificationQueueModel(id: 'changes', submittedById: 'donor',
+      verificationType: 'DonorProfileUpdate', title: 'Donor Profile Update Verification',
+      status: 'Pending', donorName: 'Alexander Silva',
+      oldValues: const {'bloodGroup': 'B+', 'phone': '0771234567'},
+      newValues: const {'bloodGroup': 'B-', 'phone': '0719876543'},
+      changedFields: const ['bloodGroup', 'phone'],
+      createdAt: DateTime.utc(2026), updatedAt: DateTime.utc(2026));
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: VerificationChangesView(item: item))));
+    expect(find.text('Blood Group'), findsOneWidget);
+    expect(find.text('Old: B+'), findsOneWidget);
+    expect(find.text('New: B-'), findsOneWidget);
+    expect(find.text('Phone Number'), findsOneWidget);
+    expect(find.text('New: 0719876543'), findsOneWidget);
+  });
   test('donor submission and status use the existing provider', () async {
     final service = FakeQueue();
     final provider = VerificationQueueProvider(service: service)..setUser('donor');
@@ -42,7 +57,7 @@ void main() {
     final s = FakeQueue(); final p = VerificationQueueProvider(service: s);
     await mount(tester, p, const VerificationQueueManagementScreen()); await tester.pumpAndSettle();
     expect(find.text('Add verification'), findsNothing);
-    await tester.tap(find.text('Donor verification')); await tester.pumpAndSettle(); expect(find.textContaining('Submitted by: user'), findsOneWidget);
+    await tester.tap(find.text('Donor verification')); await tester.pumpAndSettle(); expect(find.text('Donor: user'), findsOneWidget);
     await tester.tap(find.text('Close')); await tester.pumpAndSettle();
     await tester.tap(find.text('Approved')); await tester.pumpAndSettle(); expect(s.filter, 'Approved'); expect(find.text('No verifications found'), findsOneWidget);
     await tester.tap(find.text('All')); await tester.pumpAndSettle();

@@ -54,7 +54,7 @@ async function run() {
     }
     const pending = await expect(200, 'PATCH', path, { status: 'Pending' }); assert.equal(pending.reviewedById, null); assert.equal(pending.reviewedAt, null);
     await expect(200, 'DELETE', path); assert.equal(await prisma.verificationQueue.findUnique({ where: { id: item.id } }), null);
-    await expect(404, 'GET', path); await expect(404, 'PATCH', path, { title: 'Missing' }); await expect(404, 'DELETE', path);
+    await expect(404, 'GET', path); await expect(404, 'PATCH', path, { managerNote: 'Missing' }); await expect(404, 'DELETE', path);
     await prisma.user.update({ where: { id: users[0].id }, data: { isActive: false } }); await expect(403, 'GET');
     console.log('PASS: Verification Queue CRUD, validation, filters, role authorization and review audit fields');
   } finally {

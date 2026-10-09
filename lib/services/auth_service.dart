@@ -245,28 +245,7 @@ class AuthService {
       throw Exception(response.message);
     }
 
-    // Mock fallback
-    final index = _dataStore.users.indexWhere((u) => u.id == userId);
-    if (index != -1) {
-      if (idNumber != null && idNumber.trim().isNotEmpty) {
-        final conflict = _dataStore.users.any(
-          (u) => u.id != userId && u.idNumber.isNotEmpty && u.idNumber.toLowerCase() == idNumber.trim().toLowerCase(),
-        );
-        if (conflict) {
-          throw Exception('An account with this ID Number already exists.');
-        }
-      }
-
-      final updated = _dataStore.users[index].copyWith(
-        name: name,
-        phone: phone,
-        email: email ?? _dataStore.users[index].email,
-        idNumber: idNumber?.trim() ?? _dataStore.users[index].idNumber,
-      );
-      _dataStore.users[index] = updated;
-      return updated;
-    }
-    throw Exception('User not found');
+    throw Exception(response.message ?? 'Unable to submit profile changes for verification.');
   }
 
   // CRUD #4: Deactivate/Delete User

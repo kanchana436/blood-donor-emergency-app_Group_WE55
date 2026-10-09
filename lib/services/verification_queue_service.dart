@@ -18,8 +18,10 @@ class VerificationQueueService {
   Future<VerificationQueueModel?> getMyVerification() async {
     final records = (_data(await _api.get('$endpoint/mine')) as List).map(_model).toList();
     if (records.isEmpty) return null;
-    // Show an active request first, otherwise the most recent review.
-    return records.firstWhere((item) => item.status == 'Pending', orElse: () => records.first);
+    final updates = records.where((item) => item.verificationType == 'DonorProfileUpdate').toList();
+    final relevant = updates.isEmpty ? records : updates;
+    // Prefer profile changes over older manual verification requests.
+    return relevant.firstWhere((item) => item.status == 'Pending', orElse: () => relevant.first);
   }
   Future<VerificationQueueModel> review(String id, String status, String? note) async => _model(_data(await _api.patch('$endpoint/${Uri.encodeComponent(id)}', {'status': status, 'managerNote': note})));
   Future<void> delete(String id) async { _data(await _api.delete('$endpoint/${Uri.encodeComponent(id)}')); }

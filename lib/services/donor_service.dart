@@ -82,23 +82,7 @@ class DonorService {
       throw Exception(response.message);
     }
 
-    // Mock fallback
-    final newProfile = DonorProfileModel(
-      id: 'dp_${_uuid.v4().substring(0, 8)}',
-      userId: userId,
-      bloodGroup: bloodGroup,
-      city: city,
-      address: address,
-      isAvailable: isAvailable,
-      latitude: latitude,
-      longitude: longitude,
-      weightKg: weightKg,
-      totalDonations: 0,
-      livesSaved: 0,
-      eligibilityStatus: 'Eligible',
-    );
-    _dataStore.donorProfiles[userId] = newProfile;
-    return newProfile;
+    throw Exception(response.message ?? 'Unable to submit medical profile changes for verification.');
   }
 
   // CRUD #6: Read Donor Profile
@@ -152,24 +136,7 @@ class DonorService {
       throw Exception(response.message);
     }
 
-    // Mock fallback only for THIS userId specifically
-    var profile = _dataStore.donorProfiles[userId];
-    if (profile != null) {
-      final updated = profile.copyWith(
-        bloodGroup: bloodGroup,
-        isAvailable: isAvailable,
-        city: city,
-        address: address,
-        latitude: latitude,
-        longitude: longitude,
-        lastDonationDate: lastDonationDate,
-        weightKg: weightKg,
-      );
-      _dataStore.donorProfiles[userId] = updated;
-      return updated;
-    }
-
-    throw Exception('Donor profile not found');
+    throw Exception(response.message ?? 'Unable to submit medical profile changes for verification.');
   }
 
   // Get Compatible Requests for Donor

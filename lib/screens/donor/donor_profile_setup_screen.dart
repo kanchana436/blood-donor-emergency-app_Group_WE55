@@ -109,7 +109,7 @@ class _DonorProfileSetupScreenState extends State<DonorProfileSetupScreen> {
     if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Medical profile updated successfully!'),
+          content: Text('Changes submitted. Changed medical details require Blood Bank approval.'),
           backgroundColor: AppColors.success,
         ),
       );

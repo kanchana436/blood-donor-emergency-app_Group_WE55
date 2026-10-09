@@ -73,7 +73,7 @@ class DonorProvider with ChangeNotifier {
       notifyListeners();
 
       // Refresh secondary data in background
-      _donorService.getCompatibleRequests(bloodGroup).then((reqs) {
+      _donorService.getCompatibleRequests(_profile!.bloodGroup).then((reqs) {
         _compatibleRequests = reqs;
         notifyListeners();
       }).catchError((_) {});
@@ -123,7 +123,7 @@ class DonorProvider with ChangeNotifier {
       notifyListeners();
 
       if (bloodGroup != null) {
-        _donorService.getCompatibleRequests(bloodGroup).then((reqs) {
+        _donorService.getCompatibleRequests(_profile!.bloodGroup).then((reqs) {
           _compatibleRequests = reqs;
           notifyListeners();
         }).catchError((_) {});

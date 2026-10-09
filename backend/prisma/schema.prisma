@@ -9,26 +9,26 @@ datasource db {
 
 /// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
 model User {
-  id                String             @id @default(uuid())
-  idNumber          String             @unique @map("id_number")
-  name              String
-  email             String             @unique
-  phone             String
-  password          String
-  role              String             @default("donor") // "donor", "recipient", "manager"
-  isActive          Boolean            @default(true)
-  isEmailVerified   Boolean            @default(false) @map("is_email_verified")
-  fcmToken          String?
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  bloodRequests     BloodRequest[]
-  donationRecords   DonationRecord[]
-  donorProfile      DonorProfile?
-  donorResponses    DonorResponse[]
-  notifications     Notification[]
-  emergencyContacts EmergencyContact[]
+  id                     String              @id @default(uuid())
+  idNumber               String              @unique @map("id_number")
+  name                   String
+  email                  String              @unique
+  phone                  String
+  password               String
+  role                   String              @default("donor") // "donor", "recipient", "manager"
+  isActive               Boolean             @default(true)
+  isEmailVerified        Boolean             @default(false) @map("is_email_verified")
+  fcmToken               String?
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+  bloodRequests          BloodRequest[]
+  donationRecords        DonationRecord[]
+  donorProfile           DonorProfile?
+  donorResponses         DonorResponse[]
+  notifications          Notification[]
+  emergencyContacts      EmergencyContact[]
   submittedVerifications VerificationQueue[] @relation("VerificationSubmitter")
-  reviewedVerifications VerificationQueue[] @relation("VerificationReviewer")
+  reviewedVerifications  VerificationQueue[] @relation("VerificationReviewer")
 }
 
 model DonorProfile {
@@ -170,8 +170,12 @@ model VerificationQueue {
   reviewedAt       DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
-  submittedBy      User      @relation("VerificationSubmitter", fields: [submittedById], references: [id], onDelete: Restrict)
-  reviewedBy       User?     @relation("VerificationReviewer", fields: [reviewedById], references: [id], onDelete: Restrict)
+  oldValues        Json?
+  newValues        Json?
+  changedFields    Json?
+
+  submittedBy User  @relation("VerificationSubmitter", fields: [submittedById], references: [id], onDelete: Restrict)
+  reviewedBy  User? @relation("VerificationReviewer", fields: [reviewedById], references: [id], onDelete: Restrict)
 
   @@index([status, createdAt])
   @@index([submittedById])

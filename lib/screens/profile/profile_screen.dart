@@ -4,6 +4,7 @@ import '../../core/theme/app_colors.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/donor_provider.dart';
 import '../../providers/verification_queue_provider.dart';
+import '../../models/verification_queue_model.dart';
 import '../../widgets/blood_group_badge.dart';
 import '../donor/donor_main_navigation.dart';
 import '../donor/donor_profile_setup_screen.dart';
@@ -36,6 +37,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }
       }
     });
+  }
+
+  Future<void> _refreshVerification() async {
+    final queue = context.read<VerificationQueueProvider>();
+    final auth = context.read<AuthProvider>();
+    final donor = context.read<DonorProvider>();
+    final id = auth.currentUser?.id;
+    await queue.fetchMyVerificationStatus();
+    await auth.refreshSavedProfile();
+    if (id != null && auth.currentUser?.id == id) await donor.loadDonorData(id);
   }
 
   void _showDeactivateDialog() {
@@ -301,15 +312,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   children: [
                     Row(children: [
                       const Expanded(child: Text('Verification Status', style: TextStyle(fontWeight: FontWeight.bold))),
-                      IconButton(tooltip: 'Refresh verification status', onPressed: queue.isLoadingMyVerification || queue.isSaving ? null : queue.fetchMyVerificationStatus, icon: const Icon(Icons.refresh)),
+                      IconButton(tooltip: 'Refresh verification status', onPressed: queue.isLoadingMyVerification || queue.isSaving ? null : _refreshVerification, icon: const Icon(Icons.refresh)),
                     ]),
                     if (queue.isLoadingMyVerification) const LinearProgressIndicator(),
-                    if (verification != null) Text('Verification Status: ${verification.status}'),
+                    Text('Verification Status: ${verification?.status ?? "Not Submitted"}'),
+                    if (verification?.status == 'Pending' && verification?.verificationType == 'DonorProfileUpdate') ...[
+                      const Text('Your profile changes are waiting for Blood Bank verification.'),
+                      const Text('Pending Changes:', style: TextStyle(fontWeight: FontWeight.bold)),
+                      for (final field in verification!.changedFields) Text('${VerificationQueueModel.fieldLabel(field)}: ${VerificationQueueModel.displayValue(verification.oldValues[field])} → ${VerificationQueueModel.displayValue(verification.newValues[field])}'),
+                    ],
                     if (verification?.managerNote?.isNotEmpty == true) Text('Manager Note: ${verification!.managerNote}'),
                     if (queue.myVerificationError != null) Text(queue.myVerificationError!, style: const TextStyle(color: AppColors.error)),
-                    if (verification == null && queue.hasLoadedMyVerification && queue.myVerificationError == null)
-                      FilledButton(onPressed: queue.isSaving || queue.isLoadingMyVerification ? null : queue.submitDonorVerification,
-                        child: Text(queue.isSaving ? 'Submitting...' : 'Submit for Verification')),
+                    if (verification == null && queue.hasLoadedMyVerification) const Text('Save changes in Edit Personal Profile or Donor Medical Profile to submit them for verification.'),
                   ],
                 )));
               }),
@@ -406,10 +420,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     icon: Icons.person_outline_rounded,
                     title: 'Edit Personal Profile',
                     subtitle: 'Name, ID number, phone, contact details',
-                    onTap: () {
-                      Navigator.of(context).push(
+                    onTap: () async {
+                      await Navigator.of(context).push(
                         MaterialPageRoute(builder: (_) => const EditProfileScreen()),
                       );
+                      if (context.mounted && user?.role == 'donor') {
+                        await context.read<VerificationQueueProvider>().fetchMyVerificationStatus();
+                      }
                     },
                   ),
                   const Divider(height: 1, color: AppColors.border),
@@ -439,6 +456,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           );
                           if (mounted) {
                             await donorProvider.loadDonorData(user.id);
+                            if (context.mounted && user.role == 'donor') {
+                              await context.read<VerificationQueueProvider>().fetchMyVerificationStatus();
+                            }
                           }
                         }
                       },

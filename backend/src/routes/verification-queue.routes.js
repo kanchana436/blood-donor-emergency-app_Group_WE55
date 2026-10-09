@@ -1,11 +1,15 @@
+const { reviewProfileChanges } = require('../services/verification-profile.service');
+const donorIdentity = { submittedBy: { select: { id: true, name: true, idNumber: true, phone: true, email: true } } };
 const express = require('express');
 const { prisma } = require('../prisma');
 const { authenticateToken } = require('../middleware/auth.middleware');
 const router = express.Router();
 const statuses = ['Pending', 'Approved', 'Rejected'];
-const required = ['verificationType', 'title'];
-const optional = ['referenceId', 'description', 'managerNote'];
+const required = [];
+const optional = ['managerNote'];
 function fail(res, error) {
+  if (error.status) return res.status(error.status).json({ success: false, message: error.message });
+  if (error.code === 'P2002') return res.status(409).json({ success: false, message: 'The proposed ID number or email is already in use' });
   if (error.code === 'P2025') return res.status(404).json({ success: false, message: 'Verification not found' });
   if (error.code === 'P2003') return res.status(400).json({ success: false, message: 'Referenced user does not exist' });
   console.error('Verification queue error:', error.message);
@@ -74,7 +78,7 @@ router.post('/', requireDonor, async (req, res) => {
 router.get('/mine', requireDonor, async (req, res) => {
   try {
     const data = await prisma.verificationQueue.findMany({
-      where: { submittedById: req.user.id, verificationType: 'DonorVerification' },
+      where: { submittedById: req.user.id, verificationType: { in: ['DonorVerification', 'DonorProfileUpdate'] } },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     });
     return res.json({ success: true, data });
@@ -87,12 +91,12 @@ router.use((req, res, next) => {
 router.get('/', async (req, res) => {
   const status = req.query.status;
   if (status !== undefined && !statuses.includes(status)) return res.status(400).json({ success: false, message: 'Invalid status filter' });
-  try { return res.json({ success: true, data: await prisma.verificationQueue.findMany({ where: status ? { status } : {}, orderBy: [{ createdAt: 'desc' }, { id: 'asc' }] }) }); }
+  try { return res.json({ success: true, data: await prisma.verificationQueue.findMany({ where: status ? { status } : {}, include: donorIdentity, orderBy: [{ createdAt: 'desc' }, { id: 'asc' }] }) }); }
   catch (error) { return fail(res, error); }
 });
 router.get('/:id', async (req, res) => {
   try {
-    const data = await prisma.verificationQueue.findUnique({ where: { id: req.params.id } });
+    const data = await prisma.verificationQueue.findUnique({ where: { id: req.params.id }, include: donorIdentity });
     if (!data) return res.status(404).json({ success: false, message: 'Verification not found' });
     return res.json({ success: true, data });
   } catch (error) { return fail(res, error); }
@@ -100,7 +104,7 @@ router.get('/:id', async (req, res) => {
 router.patch('/:id', async (req, res) => {
   const { data, error } = validate(req.body, false, req.user.id);
   if (error) return res.status(400).json({ success: false, message: error });
-  try { return res.json({ success: true, data: await prisma.verificationQueue.update({ where: { id: req.params.id }, data }) }); }
+  try { return res.json({ success: true, data: await prisma.$transaction(tx => reviewProfileChanges(tx, req.params.id, data)) }); }
   catch (error) { return fail(res, error); }
 });
 router.delete('/:id', async (req, res) => {
