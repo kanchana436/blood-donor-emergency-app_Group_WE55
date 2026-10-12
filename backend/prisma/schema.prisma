@@ -30,6 +30,7 @@ model User {
   submittedVerifications VerificationQueue[] @relation("VerificationSubmitter")
   reviewedVerifications  VerificationQueue[] @relation("VerificationReviewer")
   donorAvailabilities    DonorAvailability[]
+  campaigns              BloodCampaign[]
 }
 
 model DonorProfile {
@@ -199,4 +200,32 @@ model DonorAvailability {
 
   @@index([donorId, isActive])
   @@index([status, availableFrom, availableUntil])
+}
+
+model BloodCampaign {
+  id                  String   @id @default(uuid())
+  campaignName        String
+  description         String?
+  organizerId         String
+  organizerName       String
+  contactNumber       String
+  email               String?
+  hospitalOrBloodBank String?
+  location            String
+  city                String
+  campaignDate        DateTime
+  startTime           String
+  endTime             String
+  targetDonors        Int?
+  status              String   @default("Upcoming")
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  organizer User @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+
+  @@index([city])
+  @@index([campaignDate])
+  @@index([status])
+  @@index([organizerId, isActive])
 }

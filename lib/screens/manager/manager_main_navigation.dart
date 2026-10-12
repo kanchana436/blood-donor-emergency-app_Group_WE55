@@ -6,6 +6,7 @@ import '../../providers/auth_provider.dart';
 import '../profile/profile_screen.dart';
 import 'blood_stock_management_screen.dart';
 import 'verification_queue_management_screen.dart';
+import '../campaigns/campaign_list_screen.dart';
 
 class ManagerMainNavigation extends StatefulWidget {
   const ManagerMainNavigation({super.key});
@@ -69,6 +70,23 @@ class _ManagerMainNavigationState extends State<ManagerMainNavigation> {
                     builder: (_) => const VerificationQueueManagementScreen(),
                   )),
                 )),
+                Card(
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.all(16),
+                    leading: const Icon(
+                      Icons.campaign_outlined,
+                      color: AppColors.donorPrimary,
+                    ),
+                    title: const Text('Blood Campaigns Management'),
+                    subtitle: const Text('Organize, publish, edit and track blood donation drives'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const CampaignListScreen(),
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),

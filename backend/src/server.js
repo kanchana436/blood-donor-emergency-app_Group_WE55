@@ -11,6 +11,7 @@ const bloodStockRoutes = require('./routes/blood-stock.routes');
 const verificationQueueRoutes = require('./routes/verification-queue.routes');
 const emergencyContactRoutes = require('./routes/emergency-contact.routes');
 const donorAvailabilityRoutes = require('./routes/donor-availability.routes');
+const campaignRoutes = require('./routes/campaign.routes');
 const { authenticateToken } = require('./middleware/auth.middleware');
 const { verifyEmailConnection, getEmailConfigSummary } = require('./services/email.service');
 
@@ -62,6 +63,7 @@ app.use('/api/blood-stock', bloodStockRoutes);
 app.use('/api/emergency-contacts', emergencyContactRoutes);
 app.use('/api/verification-queue', verificationQueueRoutes);
 app.use('/api/donor-availability', donorAvailabilityRoutes);
+app.use('/api/campaigns', campaignRoutes);
 
 // 404 Handler
 app.use((req, res) => {
@@ -81,7 +83,7 @@ app.use((err, req, res, next) => {
 });
 
 if (require.main === module) {
-  app.listen(PORT, async () => {
+  const server = app.listen(PORT, async () => {
     console.log('====================================================');
     console.log(`🩸 LifeLink REST API Server running on port ${PORT}`);
     console.log(`📡 Base URL: http://localhost:${PORT}/api`);
@@ -95,6 +97,28 @@ if (require.main === module) {
       await verifyEmailConnection();
     }
   });
+
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`\n⚠️  Port ${PORT} is already in use by another running instance of the backend.`);
+      console.error(`If you already have a terminal running 'npm run dev', that server is already active and healthy.`);
+      console.error(`To kill any process currently using port ${PORT}, run in PowerShell:`);
+      console.error(`   Get-NetTCPConnection -LocalPort ${PORT} -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }\n`);
+      process.exit(1);
+    } else {
+      console.error('Server error:', err);
+      process.exit(1);
+    }
+  });
+
+  const gracefulShutdown = () => {
+    server.close(() => {
+      process.exit(0);
+    });
+  };
+
+  process.on('SIGINT', gracefulShutdown);
+  process.on('SIGTERM', gracefulShutdown);
 }
 
 module.exports = app;

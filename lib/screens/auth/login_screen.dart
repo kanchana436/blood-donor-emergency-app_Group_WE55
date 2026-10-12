@@ -50,6 +50,9 @@ class _LoginScreenState extends State<LoginScreen> {
     } else if (widget.role == 'recipient') {
       _emailController.text = 'sarah.p@lifelink.org';
       _passwordController.text = 'password123';
+    } else if (widget.role == 'manager') {
+      _emailController.text = 'manager@lifelink.org';
+      _passwordController.text = 'password123';
     }
   }
 

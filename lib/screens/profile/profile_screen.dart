@@ -15,6 +15,7 @@ import '../auth/login_screen.dart';
 import 'edit_profile_screen.dart';
 import 'emergency_contact_management_screen.dart';
 import 'change_password_screen.dart';
+import '../campaigns/campaign_list_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -474,6 +475,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ),
                   ],
+
+                  const Divider(height: 1, color: AppColors.border),
+                  _buildSettingTile(
+                    icon: Icons.campaign_rounded,
+                    title: 'Blood Donation Campaigns',
+                    subtitle: 'View upcoming blood drives, camps, and details',
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const CampaignListScreen()),
+                    ),
+                  ),
 
                   const Divider(height: 1, color: AppColors.border),
                   _buildSettingTile(

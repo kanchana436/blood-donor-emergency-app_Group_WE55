@@ -31,9 +31,14 @@ async function testConnection() {
   } catch (error) {
     console.error('❌ Connection Failed:');
     if (error.code === 'P1001') {
-      console.error('   Error P1001: Can\'t reach database server at host/port.');
+      console.error('   Error P1001: Can\'t reach database server at aws-0-ap-southeast-1.pooler.supabase.com:5432');
+      console.error('\n💡 Troubleshooting Steps:');
+      console.error('   1. Check if your Supabase project is PAUSED:');
+      console.error('      Log into https://supabase.com/dashboard and click "Restore project" if paused.');
+      console.error('   2. Note: LifeLink has an automatic in-memory database fallback.');
+      console.error('      The server and all features (campaigns, stock, queue, auth) will run normally even without Supabase.');
     } else if (error.code === 'P1000' || error.message.includes('Authentication failed')) {
-      console.error('   Error P1000: Authentication failed. Please verify username and database password in .env.');
+      console.error('   Error P1000: Authentication failed. Please verify password in backend/.env.');
     } else {
       console.error('   Details:', error.message.split('\n')[0]);
     }

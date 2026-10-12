@@ -50,6 +50,8 @@ class ApiConstants {
 
   static const String verificationQueue = '/verification-queue';
 
+  static const String campaigns = '/campaigns';
+
   // Blood stock endpoints
   static const String bloodStock = '/blood-stock';
 

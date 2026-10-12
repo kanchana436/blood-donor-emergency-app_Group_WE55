@@ -80,7 +80,7 @@ class ApiService {
     return headers;
   }
 
-  static const Duration _requestTimeout = Duration(seconds: 20);
+  static const Duration _requestTimeout = Duration(seconds: 45);
 
   Future<ApiResponse<dynamic>> get(String endpoint) async {
     try {

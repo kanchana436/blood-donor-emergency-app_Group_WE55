@@ -56,6 +56,30 @@ const db = {
       isEmailVerified: true,
       createdAt: new Date().toISOString(),
     },
+    {
+      id: 'df7ae38f-1237-4611-b48a-a6c539895384',
+      idNumber: '200123478348',
+      name: 'kanchana',
+      email: 'priyadarshanik504@gmail.com',
+      password: '$2b$10$ptyCpgrP1zFvd5ZkvOBlfuSitg6nal24yUMVxSTuLxC.iYuwnvioC',
+      phone: '0772345678',
+      role: 'manager',
+      isActive: true,
+      isEmailVerified: true,
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: 'usr_mgr_303',
+      idNumber: '881234567V',
+      name: 'Dr. Kamal Wickramasinghe',
+      email: 'manager@lifelink.org',
+      password: '$2b$10$ptyCpgrP1zFvd5ZkvOBlfuSitg6nal24yUMVxSTuLxC.iYuwnvioC', // password123
+      phone: '+94 77 999 8888',
+      role: 'manager',
+      isActive: true,
+      isEmailVerified: true,
+      createdAt: new Date().toISOString(),
+    },
   ],
   emailVerificationOtps: [],
   passwordResetOtps: [],
@@ -160,6 +184,8 @@ const db = {
       relatedRequestId: 'req_001',
     },
   ],
+  donorAvailabilities: [],
+  campaigns: [],
 };
 
 module.exports = {
