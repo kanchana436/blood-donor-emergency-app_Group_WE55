@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
 import '../core/constants/api_constants.dart';
 import '../services/auth_service.dart';
+import '../services/api_service.dart';
 import '../services/mock_data_store.dart';
 
 class AuthProvider with ChangeNotifier {
@@ -229,6 +230,18 @@ class AuthProvider with ChangeNotifier {
       notifyListeners();
       return false;
     }
+  }
+
+  Future<void> refreshSavedProfile() async {
+    final id = _currentUser?.id;
+    if (id == null) return;
+    final response = await ApiService().get(ApiConstants.userProfile);
+    if (!response.success || response.data == null || _currentUser?.id != id) return;
+    final saved = UserModel.fromJson(Map<String, dynamic>.from(response.data));
+    if (saved.id != id) return;
+    _currentUser = saved;
+    await _saveSession(saved, _activeRole);
+    notifyListeners();
   }
 
   Future<bool> updateProfile({

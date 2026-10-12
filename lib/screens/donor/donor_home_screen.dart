@@ -13,6 +13,8 @@ import '../../widgets/empty_state_view.dart';
 import '../../widgets/error_state_view.dart';
 import '../notifications/notifications_screen.dart';
 import 'donor_request_details_screen.dart';
+import 'donor_availability_screen.dart';
+import '../campaigns/campaign_list_screen.dart';
 
 class DonorHomeScreen extends StatefulWidget {
   const DonorHomeScreen({super.key});
@@ -250,6 +252,58 @@ class _DonorHomeScreenState extends State<DonorHomeScreen> {
                       },
                     ),
                   ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    foregroundColor: AppColors.donorPrimary,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                  ),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const DonorAvailabilityScreen()),
+                  ),
+                  icon: const Icon(Icons.edit_calendar_rounded, size: 16),
+                  label: const Text(
+                    'Manage Availability Schedule',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Blood Campaigns Card
+              Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  side: const BorderSide(color: AppColors.border),
+                ),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.donorPrimaryLight.withValues(alpha: 0.4),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.campaign_rounded, color: AppColors.donorPrimary, size: 22),
+                  ),
+                  title: const Text(
+                    'Blood Donation Campaigns',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                  subtitle: const Text(
+                    'Explore upcoming donation drives & community camps',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  trailing: const Icon(Icons.chevron_right, size: 20),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const CampaignListScreen()),
+                  ),
                 ),
               ),
               const SizedBox(height: 16),

@@ -88,6 +88,8 @@ class _DonorResponsesScreenState extends State<DonorResponsesScreen>
       itemBuilder: (context, index) {
         final item = items[index];
         final badgeColor = isAccepted ? AppColors.success : AppColors.textMuted;
+        final rawId = item.requestId.replaceAll('req_', '');
+        final displayId = rawId.length > 8 ? rawId.substring(0, 8) : rawId;
 
         return Container(
           margin: const EdgeInsets.symmetric(vertical: 6),
@@ -108,14 +110,19 @@ class _DonorResponsesScreenState extends State<DonorResponsesScreen>
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          'Request #${item.requestId.replaceAll('req_', '')}',
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary,
+                        Expanded(
+                          child: Text(
+                            'Request #$displayId',
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
                           ),
                         ),
+                        const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(

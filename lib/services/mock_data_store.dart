@@ -163,6 +163,31 @@ class MockDataStore {
     );
     users.add(recipientUser);
 
+    // Manager User
+    final managerUser = UserModel(
+      id: 'usr_mgr_303',
+      idNumber: '881234567V',
+      name: 'Dr. Kamal Wickramasinghe',
+      email: 'manager@lifelink.org',
+      phone: '+94 77 999 8888',
+      role: 'manager',
+      isActive: true,
+      createdAt: DateTime.now().subtract(const Duration(days: 30)),
+    );
+    users.add(managerUser);
+
+    final kanchanaUser = UserModel(
+      id: 'df7ae38f-1237-4611-b48a-a6c539895384',
+      idNumber: '200123478348',
+      name: 'kanchana',
+      email: 'priyadarshanik504@gmail.com',
+      phone: '0772345678',
+      role: 'manager',
+      isActive: true,
+      createdAt: DateTime.now().subtract(const Duration(days: 5)),
+    );
+    users.add(kanchanaUser);
+
     // Additional Potential Donors for matching
     final matchedDonorsList = [
       DonorResponseModel(

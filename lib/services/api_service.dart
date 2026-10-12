@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/constants/api_constants.dart';
@@ -34,7 +35,14 @@ class ApiService {
       _authToken = prefs.getString(ApiConstants.tokenKey);
       final savedUrl = prefs.getString(ApiConstants.baseUrlKey);
       if (savedUrl != null && savedUrl.isNotEmpty) {
-        _baseUrl = savedUrl;
+        if (kIsWeb && (savedUrl.contains('10.0.2.2') || savedUrl.contains(':5001'))) {
+          _baseUrl = ApiConstants.baseUrl;
+          await prefs.remove(ApiConstants.baseUrlKey);
+        } else {
+          _baseUrl = savedUrl;
+        }
+      } else {
+        _baseUrl = ApiConstants.baseUrl;
       }
     } catch (_) {
       // Graceful fallback if SharedPreferences is not supported on this platform
@@ -72,7 +80,7 @@ class ApiService {
     return headers;
   }
 
-  static const Duration _requestTimeout = Duration(seconds: 20);
+  static const Duration _requestTimeout = Duration(seconds: 45);
 
   Future<ApiResponse<dynamic>> get(String endpoint) async {
     try {

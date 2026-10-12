@@ -1,3 +1,4 @@
+const { verificationProfile } = require('../middleware/verification-profile.middleware');
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
@@ -662,7 +663,7 @@ router.get('/users', async (req, res) => {
 });
 
 // PUT /api/auth/profile
-router.put('/profile', async (req, res) => {
+router.put('/profile', authenticateToken, verificationProfile(false), async (req, res) => {
   try {
     const { userId, name, phone, email, idNumber, id_number } = req.body;
 

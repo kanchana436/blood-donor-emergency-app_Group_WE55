@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/verification_queue_provider.dart';
+import '../../providers/donor_provider.dart';
 import '../../core/theme/app_colors.dart';
 import 'donor_home_screen.dart';
 import 'donor_responses_screen.dart';
@@ -43,6 +47,12 @@ class _DonorMainNavigationState extends State<DonorMainNavigation> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) {
+          if (index == 3 && context.read<AuthProvider>().currentUser?.role == 'donor') {
+            context.read<VerificationQueueProvider>().fetchMyVerificationStatus();
+            final auth = context.read<AuthProvider>();
+            auth.refreshSavedProfile();
+            context.read<DonorProvider>().loadDonorData(auth.currentUser!.id);
+          }
           setState(() {
             _currentIndex = index;
           });
