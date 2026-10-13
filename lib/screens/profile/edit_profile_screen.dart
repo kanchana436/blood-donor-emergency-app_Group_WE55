@@ -54,8 +54,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Profile updated successfully!'),
+        SnackBar(
+          content: Text(auth.currentUser?.role == 'donor' ? 'Changes submitted. Changed identity details require Blood Bank approval.' : 'Profile updated successfully!'),
           backgroundColor: AppColors.success,
         ),
       );

@@ -3,6 +3,11 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'core/theme/app_theme.dart';
 import 'providers/auth_provider.dart';
+import 'providers/verification_queue_provider.dart';
+import 'providers/emergency_contact_provider.dart';
+import 'providers/blood_stock_provider.dart';
+import 'providers/donor_availability_provider.dart';
+import 'providers/blood_campaign_provider.dart';
 import 'providers/donor_provider.dart';
 import 'providers/request_provider.dart';
 import 'providers/notification_provider.dart';
@@ -39,6 +44,26 @@ class LifeLinkApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProxyProvider<AuthProvider, BloodStockProvider>(
+          create: (_) => BloodStockProvider(),
+          update: (_, auth, stock) => stock!..setUser(auth.currentUser?.id),
+        ),
+        ChangeNotifierProxyProvider<AuthProvider, EmergencyContactProvider>(
+          create: (_) => EmergencyContactProvider(),
+          update: (_, auth, contacts) => contacts!..setUser(auth.currentUser?.id),
+        ),
+        ChangeNotifierProxyProvider<AuthProvider, VerificationQueueProvider>(
+          create: (_) => VerificationQueueProvider(),
+          update: (_, auth, queue) => queue!..setUser(auth.currentUser?.id),
+        ),
+        ChangeNotifierProxyProvider<AuthProvider, DonorAvailabilityProvider>(
+          create: (_) => DonorAvailabilityProvider(),
+          update: (_, auth, avail) => avail!..setUser(auth.currentUser?.id),
+        ),
+        ChangeNotifierProxyProvider<AuthProvider, BloodCampaignProvider>(
+          create: (_) => BloodCampaignProvider(),
+          update: (_, auth, camp) => camp!..setUser(auth.currentUser?.id, auth.currentUser?.role),
+        ),
         ChangeNotifierProvider(create: (_) => DonorProvider()),
         ChangeNotifierProvider(create: (_) => RequestProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
@@ -58,3 +83,7 @@ class LifeLinkApp extends StatelessWidget {
     );
   }
 }
+
+
+
+

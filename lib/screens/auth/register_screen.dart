@@ -36,6 +36,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String? _selectedBloodGroup;
 
   Color get _themeColor {
+    if (widget.role == 'manager') return AppColors.success;
     return widget.role == 'donor'
         ? AppColors.donorPrimary
         : AppColors.recipientPrimary;
@@ -173,7 +174,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isDonor ? 'Create Donor Account' : 'Create Recipient Account',
+                  widget.role == 'manager' ? 'Create Coordinator Account' : isDonor ? 'Create Donor Account' : 'Create Recipient Account',
                   style: const TextStyle(
                     fontSize: 26,
                     fontWeight: FontWeight.w800,

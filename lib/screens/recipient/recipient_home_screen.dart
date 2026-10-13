@@ -12,6 +12,7 @@ import '../../widgets/error_state_view.dart';
 import '../notifications/notifications_screen.dart';
 import 'create_blood_request_screen.dart';
 import 'request_tracking_screen.dart';
+import '../campaigns/campaign_list_screen.dart';
 
 class RecipientHomeScreen extends StatefulWidget {
   const RecipientHomeScreen({super.key});
@@ -258,7 +259,40 @@ class _RecipientHomeScreenState extends State<RecipientHomeScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 14),
+
+              // Blood Campaigns Discovery Card
+              Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  side: const BorderSide(color: AppColors.border),
+                ),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.recipientPrimaryLight.withValues(alpha: 0.4),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.campaign_rounded, color: AppColors.recipientPrimary, size: 22),
+                  ),
+                  title: const Text(
+                    'Community Blood Campaigns',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                  subtitle: const Text(
+                    'Find active donation drives and hospital blood camps',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  trailing: const Icon(Icons.chevron_right, size: 20),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const CampaignListScreen()),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
 
               // Active Requests Section Header
               Row(

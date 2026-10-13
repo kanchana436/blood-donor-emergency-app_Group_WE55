@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ path: require('path').resolve(__dirname, '../../.env') });
 const nodemailer = require('nodemailer');
 
 let transporter = null;
@@ -75,7 +75,19 @@ function getTransporter() {
   const secure = process.env.SMTP_SECURE === 'true' || port === 465;
   const service = process.env.SMTP_SERVICE || process.env.EMAIL_SERVICE;
 
-  if (host && user && pass) {
+  const isGmail = (host && host.toLowerCase().includes('gmail')) ||
+                  (user && user.toLowerCase().endsWith('@gmail.com')) ||
+                  service === 'gmail';
+
+  if (isGmail && user && pass) {
+    transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user, pass },
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
+    });
+  } else if (host && user && pass) {
     transporter = nodemailer.createTransport({
       host,
       port,
@@ -95,9 +107,7 @@ function getTransporter() {
     });
   } else if (user && pass) {
     transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 587,
-      secure: false,
+      service: 'gmail',
       auth: { user, pass },
       connectionTimeout: 10000,
     });

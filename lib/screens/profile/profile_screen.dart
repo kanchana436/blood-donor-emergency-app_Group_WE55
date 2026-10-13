@@ -3,14 +3,19 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/donor_provider.dart';
+import '../../providers/verification_queue_provider.dart';
+import '../../models/verification_queue_model.dart';
 import '../../widgets/blood_group_badge.dart';
 import '../donor/donor_main_navigation.dart';
 import '../donor/donor_profile_setup_screen.dart';
+import '../donor/donor_availability_screen.dart';
 import '../recipient/recipient_main_navigation.dart';
 import '../auth/role_selection_screen.dart';
 import '../auth/login_screen.dart';
 import 'edit_profile_screen.dart';
+import 'emergency_contact_management_screen.dart';
 import 'change_password_screen.dart';
+import '../campaigns/campaign_list_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -24,12 +29,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       final auth = Provider.of<AuthProvider>(context, listen: false);
       final donor = Provider.of<DonorProvider>(context, listen: false);
       if (auth.currentUser != null && auth.isDonor) {
         donor.loadDonorData(auth.currentUser!.id);
+        if (auth.currentUser!.role == 'donor') {
+          context.read<VerificationQueueProvider>().fetchMyVerificationStatus();
+        }
       }
     });
+  }
+
+  Future<void> _refreshVerification() async {
+    final queue = context.read<VerificationQueueProvider>();
+    final auth = context.read<AuthProvider>();
+    final donor = context.read<DonorProvider>();
+    final id = auth.currentUser?.id;
+    await queue.fetchMyVerificationStatus();
+    await auth.refreshSavedProfile();
+    if (id != null && auth.currentUser?.id == id) await donor.loadDonorData(id);
   }
 
   void _showDeactivateDialog() {
@@ -287,6 +306,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 18),
 
+            if (isDonor && user?.role == 'donor') ...[
+              Consumer<VerificationQueueProvider>(builder: (context, queue, _) {
+                final verification = queue.myVerification;
+                return Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      const Expanded(child: Text('Verification Status', style: TextStyle(fontWeight: FontWeight.bold))),
+                      IconButton(tooltip: 'Refresh verification status', onPressed: queue.isLoadingMyVerification || queue.isSaving ? null : _refreshVerification, icon: const Icon(Icons.refresh)),
+                    ]),
+                    if (queue.isLoadingMyVerification) const LinearProgressIndicator(),
+                    Text('Verification Status: ${verification?.status ?? "Not Submitted"}'),
+                    if (verification?.status == 'Pending' && verification?.verificationType == 'DonorProfileUpdate') ...[
+                      const Text('Your profile changes are waiting for Blood Bank verification.'),
+                      const Text('Pending Changes:', style: TextStyle(fontWeight: FontWeight.bold)),
+                      for (final field in verification!.changedFields) Text('${VerificationQueueModel.fieldLabel(field)}: ${VerificationQueueModel.displayValue(verification.oldValues[field])} → ${VerificationQueueModel.displayValue(verification.newValues[field])}'),
+                    ],
+                    if (verification?.managerNote?.isNotEmpty == true) Text('Manager Note: ${verification!.managerNote}'),
+                    if (queue.myVerificationError != null) Text(queue.myVerificationError!, style: const TextStyle(color: AppColors.error)),
+                    if (verification == null && queue.hasLoadedMyVerification) const Text('Save changes in Edit Personal Profile or Donor Medical Profile to submit them for verification.'),
+                  ],
+                )));
+              }),
+              const SizedBox(height: 18),
+            ],
             // Role Switcher Card
             Container(
               padding: const EdgeInsets.all(16),
@@ -378,11 +422,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     icon: Icons.person_outline_rounded,
                     title: 'Edit Personal Profile',
                     subtitle: 'Name, ID number, phone, contact details',
-                    onTap: () {
-                      Navigator.of(context).push(
+                    onTap: () async {
+                      await Navigator.of(context).push(
                         MaterialPageRoute(builder: (_) => const EditProfileScreen()),
                       );
+                      if (context.mounted && user?.role == 'donor') {
+                        await context.read<VerificationQueueProvider>().fetchMyVerificationStatus();
+                      }
                     },
+                  ),
+                  const Divider(height: 1, color: AppColors.border),
+                  _buildSettingTile(
+                    icon: Icons.contact_emergency_outlined,
+                    title: 'Emergency Contacts',
+                    subtitle: 'Manage contacts and your primary contact',
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const EmergencyContactManagementScreen()),
+                    ),
                   ),
                   if (isDonor) ...[
                     const Divider(height: 1, color: AppColors.border),
@@ -402,11 +458,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           );
                           if (mounted) {
                             await donorProvider.loadDonorData(user.id);
+                            if (context.mounted && user.role == 'donor') {
+                              await context.read<VerificationQueueProvider>().fetchMyVerificationStatus();
+                            }
                           }
                         }
                       },
                     ),
+                    const Divider(height: 1, color: AppColors.border),
+                    _buildSettingTile(
+                      icon: Icons.event_available_rounded,
+                      title: 'Donor Availability Schedule',
+                      subtitle: 'Set your donation availability dates, city, and notes',
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const DonorAvailabilityScreen()),
+                      ),
+                    ),
                   ],
+
+                  const Divider(height: 1, color: AppColors.border),
+                  _buildSettingTile(
+                    icon: Icons.campaign_rounded,
+                    title: 'Blood Donation Campaigns',
+                    subtitle: 'View upcoming blood drives, camps, and details',
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const CampaignListScreen()),
+                    ),
+                  ),
 
                   const Divider(height: 1, color: AppColors.border),
                   _buildSettingTile(

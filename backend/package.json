@@ -6,12 +6,20 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
+    "kill:port": "powershell -Command \"Get-NetTCPConnection -LocalPort 5000 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }\"",
+    "test:verification-profile-changes": "node --test src/scripts/test-verification-profile-changes.js",
+    "test:verification-queue": "node src/scripts/test-verification-queue-crud.js",
+    "test:emergency-contacts": "node src/scripts/test-emergency-contact-crud.js",
+    "test:blood-stock": "node src/scripts/test-blood-stock-crud.js",
+    "test:donor-availability": "node src/scripts/test-donor-availability-crud.js",
+    "test:blood-campaigns": "node src/scripts/test-blood-campaign-crud.js",
     "test:db": "node src/scripts/test-db-connection.js",
     "verify:supabase": "node src/scripts/verify-supabase-crud.js",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "prisma:pull": "prisma db pull",
-    "prisma:migrate": "prisma migrate dev"
+    "prisma:migrate": "prisma migrate dev",
+    "test:email": "node src/scripts/test-email-connection.js"
   },
   "dependencies": {
     "@prisma/client": "^6.4.0",
