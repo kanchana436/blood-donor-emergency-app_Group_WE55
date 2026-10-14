@@ -5,6 +5,8 @@ import '../../core/theme/app_colors.dart';
 import '../../providers/auth_provider.dart';
 import '../profile/profile_screen.dart';
 import 'blood_stock_management_screen.dart';
+import 'manager_rules_screen.dart';
+import 'manager_chat_reauth_screen.dart';
 import 'verification_queue_management_screen.dart';
 
 class ManagerMainNavigation extends StatefulWidget {
@@ -24,6 +26,9 @@ class _ManagerMainNavigationState extends State<ManagerMainNavigation> {
       return const Scaffold(
         body: Center(child: Text('Manager or admin access required')),
       );
+    }
+    if (!context.watch<AuthProvider>().managerRulesAccepted) {
+      return const ManagerRulesScreen();
     }
     return Scaffold(
       body: IndexedStack(
@@ -59,6 +64,16 @@ class _ManagerMainNavigationState extends State<ManagerMainNavigation> {
                     ),
                   ),
                 ),
+                Card(child: ListTile(
+                  contentPadding: const EdgeInsets.all(16),
+                  leading: const Icon(Icons.chat_outlined, color: AppColors.success),
+                  title: const Text('Donor Chat'),
+                  subtitle: const Text('Chat securely with donors in your branch city'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => const ManagerChatReauthScreen(),
+                  )),
+                )),
                 Card(child: ListTile(
                   contentPadding: const EdgeInsets.all(16),
                   leading: const Icon(Icons.fact_check_outlined),

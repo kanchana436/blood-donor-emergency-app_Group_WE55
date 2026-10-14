@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'core/theme/app_theme.dart';
 import 'providers/auth_provider.dart';
+import 'providers/chat_provider.dart';
 import 'providers/verification_queue_provider.dart';
 import 'providers/emergency_contact_provider.dart';
 import 'providers/blood_stock_provider.dart';
@@ -42,6 +43,10 @@ class LifeLinkApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProxyProvider<AuthProvider, ChatProvider>(
+          create: (_) => ChatProvider(),
+          update: (_, auth, chat) => chat!..setSession(auth.currentUser == null ? null : '${auth.currentUser!.id}:${auth.sessionVersion}'),
+        ),
         ChangeNotifierProxyProvider<AuthProvider, BloodStockProvider>(
           create: (_) => BloodStockProvider(),
           update: (_, auth, stock) => stock!..setUser(auth.currentUser?.id),

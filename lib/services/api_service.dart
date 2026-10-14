@@ -74,11 +74,11 @@ class ApiService {
 
   static const Duration _requestTimeout = Duration(seconds: 20);
 
-  Future<ApiResponse<dynamic>> get(String endpoint) async {
+  Future<ApiResponse<dynamic>> get(String endpoint, {Map<String, String>? headers}) async {
     try {
       final uri = Uri.parse('$_baseUrl$endpoint');
       final response = await http
-          .get(uri, headers: _buildHeaders())
+          .get(uri, headers: {..._buildHeaders(), ...?headers})
           .timeout(_requestTimeout);
 
       return _handleResponse(response);
@@ -90,13 +90,13 @@ class ApiService {
     }
   }
 
-  Future<ApiResponse<dynamic>> post(String endpoint, Map<String, dynamic> body) async {
+  Future<ApiResponse<dynamic>> post(String endpoint, Map<String, dynamic> body, {Map<String, String>? headers}) async {
     try {
       final uri = Uri.parse('$_baseUrl$endpoint');
       final response = await http
           .post(
             uri,
-            headers: _buildHeaders(),
+            headers: {..._buildHeaders(), ...?headers},
             body: jsonEncode(body),
           )
           .timeout(_requestTimeout);
@@ -130,13 +130,13 @@ class ApiService {
     }
   }
 
-  Future<ApiResponse<dynamic>> patch(String endpoint, Map<String, dynamic> body) async {
+  Future<ApiResponse<dynamic>> patch(String endpoint, Map<String, dynamic> body, {Map<String, String>? headers}) async {
     try {
       final uri = Uri.parse('$_baseUrl$endpoint');
       final response = await http
           .patch(
             uri,
-            headers: _buildHeaders(),
+            headers: {..._buildHeaders(), ...?headers},
             body: jsonEncode(body),
           )
           .timeout(_requestTimeout);

@@ -5,6 +5,7 @@ import '../../providers/verification_queue_provider.dart';
 import '../../providers/donor_provider.dart';
 import '../../core/theme/app_colors.dart';
 import 'donor_home_screen.dart';
+import '../chat/private_chat_screen.dart';
 import 'donor_responses_screen.dart';
 import 'donation_history_screen.dart';
 import '../profile/profile_screen.dart';
@@ -29,6 +30,7 @@ class _DonorMainNavigationState extends State<DonorMainNavigation> {
     DonorResponsesScreen(),
     DonationHistoryScreen(),
     ProfileScreen(),
+    PrivateChatScreen(donorEntry: true),
   ];
 
   @override
@@ -42,7 +44,7 @@ class _DonorMainNavigationState extends State<DonorMainNavigation> {
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,
-        children: _screens,
+        children: [for (var i = 0; i < _screens.length; i++) i == 4 && _currentIndex != 4 ? const SizedBox.shrink() : _screens[i]],
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
@@ -82,6 +84,7 @@ class _DonorMainNavigationState extends State<DonorMainNavigation> {
             activeIcon: Icon(Icons.person_rounded),
             label: 'Profile',
           ),
+          BottomNavigationBarItem(icon: Icon(Icons.chat_outlined), label: 'Blood Bank Chat'),
         ],
       ),
     );

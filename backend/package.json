@@ -4,6 +4,7 @@
   "description": "LifeLink Emergency Blood Donation Backend REST API",
   "main": "src/server.js",
   "scripts": {
+    "test:manager-chat-rules": "node --test src/scripts/test-manager-chat-rules.js",
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "test:verification-profile-changes": "node --test src/scripts/test-verification-profile-changes.js",

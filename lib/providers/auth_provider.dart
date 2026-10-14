@@ -8,7 +8,11 @@ import '../services/api_service.dart';
 import '../services/mock_data_store.dart';
 
 class AuthProvider with ChangeNotifier {
-  final AuthService _authService = AuthService();
+  final AuthService _authService;
+  bool _managerRulesAccepted = false;
+  int _sessionVersion = 0;
+  bool get managerRulesAccepted => _managerRulesAccepted;
+  int get sessionVersion => _sessionVersion;
   UserModel? _currentUser;
   String _activeRole = 'donor'; // 'donor' or 'recipient'
   bool _isLoading = false;
@@ -26,7 +30,7 @@ class AuthProvider with ChangeNotifier {
   bool get isAuthenticated => _currentUser != null;
   bool get isDonor => _activeRole == 'donor';
 
-  AuthProvider() {
+  AuthProvider({AuthService? service}) : _authService = service ?? AuthService() {
     _initSession();
   }
 
@@ -101,6 +105,8 @@ class AuthProvider with ChangeNotifier {
     String? address,
     double? weightKg,
   }) async {
+    _managerRulesAccepted = false;
+    _sessionVersion++;
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -145,6 +151,8 @@ class AuthProvider with ChangeNotifier {
     required String email,
     required String password,
   }) async {
+    _managerRulesAccepted = false;
+    _sessionVersion++;
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -190,6 +198,8 @@ class AuthProvider with ChangeNotifier {
     required String email,
     required String otp,
   }) async {
+    _managerRulesAccepted = false;
+    _sessionVersion++;
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -393,7 +403,23 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  Future<void> acceptManagerRules() async {
+    final id = _currentUser?.id;
+    final session = _sessionVersion;
+    if (id == null || !['manager', 'admin'].contains(_currentUser?.role)) {
+      throw Exception('Manager access required');
+    }
+    final response = await ApiService().post('/auth/manager/rules/accept', {});
+    if (!response.success) throw Exception(response.message ?? 'Unable to save acceptance');
+    if (id != _currentUser?.id || session != _sessionVersion) throw Exception('Session changed. Sign in again.');
+    _managerRulesAccepted = true;
+    notifyListeners();
+  }
+
   Future<void> logout() async {
+    _managerRulesAccepted = false;
+    _sessionVersion++;
+
     await _authService.logout();
     await _clearSession();
     _currentUser = null;

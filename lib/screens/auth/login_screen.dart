@@ -8,7 +8,7 @@ import '../../widgets/custom_text_field.dart';
 import '../donor/donor_main_navigation.dart';
 import '../donor/donor_profile_setup_screen.dart';
 import '../recipient/recipient_main_navigation.dart';
-import '../manager/manager_main_navigation.dart';
+import '../manager/manager_rules_screen.dart';
 import 'register_screen.dart';
 import 'forgot_password_screen.dart';
 import 'email_verification_screen.dart';
@@ -78,7 +78,7 @@ class _LoginScreenState extends State<LoginScreen> {
       final user = authProvider.currentUser!;
       if (user.role == 'manager' || user.role == 'admin') {
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const ManagerMainNavigation()),
+          MaterialPageRoute(builder: (_) => const ManagerRulesScreen()),
         );
       } else if (user.role == 'donor') {
         await donorProvider.loadDonorData(user.id);

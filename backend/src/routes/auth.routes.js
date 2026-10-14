@@ -441,6 +441,27 @@ router.post('/register', async (req, res) => {
   }
 });
 
+// Audit the latest explicit acceptance; the UI requests it after every login.
+router.post('/manager/rules/accept', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.scope) return res.status(401).json({ success: false, message: 'Regular session required' });
+    const data = await prisma.$transaction(async tx => {
+      await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${req.user.id} FOR UPDATE`;
+      const user = await tx.user.findUnique({ where: { id: req.user.id } });
+      if (!user) return null;
+      if (!user.isActive || !['manager', 'admin'].includes(user.role)) return false;
+      return tx.user.update({ where: { id: user.id },
+        data: { managerRulesAcceptedAt: new Date(), managerRulesVersion: '1.0' },
+        select: { managerRulesAcceptedAt: true, managerRulesVersion: true } });
+    });
+    if (data === null) return res.status(401).json({ success: false, message: 'Account not found' });
+    if (data === false) return res.status(403).json({ success: false, message: 'Active manager access required' });
+    return res.json({ success: true, data });
+  } catch (_) {
+    return res.status(503).json({ success: false, message: 'Unable to save rules acceptance' });
+  }
+});
+
 // POST /api/auth/login
 router.post('/login', async (req, res) => {
   try {

@@ -514,28 +514,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: AppColors.border),
               ),
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.logout_rounded, color: AppColors.textPrimary),
-                    title: const Text('Sign Out', style: TextStyle(fontWeight: FontWeight.w600)),
-                    onTap: () async {
-                      await authProvider.logout();
-                      if (context.mounted) {
-                        Navigator.of(context).pushAndRemoveUntil(
-                          MaterialPageRoute(builder: (_) => const RoleSelectionScreen()),
-                          (route) => false,
-                        );
-                      }
-                    },
-                  ),
-                  const Divider(height: 1, color: AppColors.border),
-                  ListTile(
-                    leading: const Icon(Icons.delete_forever_outlined, color: AppColors.error),
-                    title: const Text('Deactivate Account', style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w600)),
-                    onTap: _showDeactivateDialog,
-                  ),
-                ],
+              child: Material(
+                type: MaterialType.transparency,
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.logout_rounded, color: AppColors.textPrimary),
+                      title: const Text('Sign Out', style: TextStyle(fontWeight: FontWeight.w600)),
+                      onTap: () async {
+                        await authProvider.logout();
+                        if (context.mounted) {
+                          Navigator.of(context).pushAndRemoveUntil(
+                            MaterialPageRoute(builder: (_) => const RoleSelectionScreen()),
+                            (route) => false,
+                          );
+                        }
+                      },
+                    ),
+                    const Divider(height: 1, color: AppColors.border),
+                    ListTile(
+                      leading: const Icon(Icons.delete_forever_outlined, color: AppColors.error),
+                      title: const Text('Deactivate Account', style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w600)),
+                      onTap: _showDeactivateDialog,
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 28),
